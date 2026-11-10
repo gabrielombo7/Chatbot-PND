@@ -268,13 +268,13 @@ function ficha(e, color){
     ? '<button class="vertodo' + (enDesc ? ' coincide' : '') + '" type="button" aria-expanded="false"'
       + ' data-extra="' + extra + '">' + FLECHA
       + '<span class="vertodo-txt">Ver descripción' + extra + '</span></button>'
-      + '<div class="desc"><p>' + resaltar(e.desc, TERMINOS) + '</p></div>'
+      + '<div class="desc"><p data-raw="' + esc(e.desc) + '">' + resaltar(e.desc, TERMINOS) + '</p></div>'
     : '<p class="vacio">Esta estrategia aparece en el árbol sin descripción propia.'
       + (e.kw.length ? ' Las palabras clave son la única referencia disponible.' : '') + '</p>';
   const chips = e.kw.length
     ? '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k =>
-        '<span class="chip' + (chipCoincide(k, terminosKw) ? ' coincide' : '') + '">'
-        + esc(k) + '</span>').join("") + '</div>'
+        '<span class="chip' + (chipCoincide(k, terminosKw) ? ' coincide' : '') + '" data-raw="'
+        + esc(k) + '">' + esc(k) + '</span>').join("") + '</div>'
     : "";
   return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">'
     + chips + desc + '</div>';
@@ -290,20 +290,20 @@ function dibujar(){
           + ' aria-expanded="false" data-cod="' + esc(e.cod) + '"'
           + ' data-buscar="' + esc(sinTildes(e.cod+" "+e.nombre+" "+t.nombre+" "+e.kw.join(" ")+" "+(e.desc||""))) + '">'
           + '<span class="est-cod">' + esc(e.cod) + '</span>'
-          + '<span class="est-nom">' + resaltar(e.nombre, TERMINOS) + '</span>'
+          + '<span class="est-nom" data-raw="' + esc(e.nombre) + '">' + resaltar(e.nombre, TERMINOS) + '</span>'
           + (nivel ? '<span class="insignia ' + nivel + '">' + ROTULO[nivel] + '</span>' : "")
           + '</div>' + ficha(e, eje.color);
       }).join("");
       const n = t.estrategias.length;
       return '<details class="tema"><summary>' + FLECHA
         + '<span class="tema-num">' + esc(t.num) + '</span>'
-        + '<span class="tema-nom">' + resaltar(t.nombre, TERMINOS) + '</span>'
+        + '<span class="tema-nom" data-raw="' + esc(t.nombre) + '">' + resaltar(t.nombre, TERMINOS) + '</span>'
         + '<span class="tema-cnt">' + n + '</span></summary>'
         + '<div class="lista">' + ests + '</div></details>';
     }).join("");
     partes.push('<details class="eje" style="--c:' + eje.color + '"><summary>' + FLECHA
       + '<span class="eje-num">' + eje.num + '</span>'
-      + '<span class="eje-nom">' + resaltar(eje.nombre, TERMINOS) + '</span>'
+      + '<span class="eje-nom" data-raw="' + esc(eje.nombre) + '">' + resaltar(eje.nombre, TERMINOS) + '</span>'
       + '<span class="eje-cnt">' + eje.n_est + ' estrategias</span></summary>'
       + temas + '</details>');
   }
@@ -342,6 +342,40 @@ const nada = document.getElementById("nada");
 const FILTRO = new Set();   /* niveles elegidos con los botones; vacío = todo el árbol */
 const pasaNivel = e => FILTRO.size === 0 || [...FILTRO].some(n => e.classList.contains(n));
 
+let ultimaBusqueda = "";
+const AUTO = [];   /* fichas/descripciones que abrió la búsqueda, para cerrarlas al cambiarla */
+
+function cerrarAuto(){
+  AUTO.splice(0).forEach(([tipo, e]) => {
+    const f = document.getElementById("f-" + e.dataset.cod);
+    if(tipo === "f"){ f.classList.remove("abierta"); e.setAttribute("aria-expanded","false"); }
+    else {
+      const b = f.querySelector(".vertodo");
+      f.querySelector(".desc").classList.remove("abierta");
+      b.setAttribute("aria-expanded","false");
+      b.querySelector(".vertodo-txt").textContent = "Ver descripción" + (b.dataset.extra || "");
+    }
+  });
+}
+
+/* Con pocas coincidencias se abre la ficha (palabras clave resaltadas) y, si la palabra
+   está en la descripción, también la descripción. */
+function abrirAuto(t){
+  document.querySelectorAll(".est:not(.oculto)").forEach(e => {
+    const f = document.getElementById("f-" + e.dataset.cod);
+    if(!f.classList.contains("abierta")){
+      f.classList.add("abierta"); e.setAttribute("aria-expanded","true"); AUTO.push(["f", e]);
+    }
+    const d = f.querySelector(".desc"), b = f.querySelector(".vertodo");
+    if(d && b && !d.classList.contains("abierta")
+       && sinTildes(d.querySelector("p").dataset.raw || "").includes(t)){
+      d.classList.add("abierta"); b.setAttribute("aria-expanded","true");
+      b.querySelector(".vertodo-txt").textContent = "Ocultar descripción" + (b.dataset.extra || "");
+      AUTO.push(["d", e]);
+    }
+  });
+}
+
 function filtrar(){
   const t = sinTildes(caja.value.trim());
   const ests = document.querySelectorAll(".est");
@@ -354,6 +388,18 @@ function filtrar(){
     document.getElementById("f-" + e.dataset.cod).classList.toggle("oculto", !pasa);
     if(pasa) visibles++;
   });
+
+  /* Lo escrito en el buscador se resalta en nombres, temas, ejes, palabras clave y
+     descripciones; al borrarlo quedan sólo las marcas del chat. */
+  if(t !== ultimaBusqueda){
+    ultimaBusqueda = t;
+    cerrarAuto();
+    document.querySelectorAll("[data-raw]").forEach(el => {
+      const base = el.classList.contains("chip") ? [] : TERMINOS;
+      el.innerHTML = resaltar(el.dataset.raw, t ? base.concat([t]) : base);
+    });
+  }
+  if(t && visibles <= 8) abrirAuto(t);
 
   document.querySelectorAll("details.tema").forEach(d => {
     const hay = d.querySelectorAll(".est:not(.oculto)").length;
