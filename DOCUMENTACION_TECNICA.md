@@ -144,8 +144,20 @@ estadístico (función `buscar_estrategias`):
 2. en qué campo coincidieron — palabras clave y nombre de la estrategia pesan
    más que el tema, y el tema más que la descripción (diccionario
    `PESO_CAMPO`);
-3. las palabras que escribió la persona pesan el doble que las que agregó el
-   diccionario de sinónimos (ver `factor` en `buscar_estrategias`).
+3. los términos que llegan a la herramienta (los de la persona y los que el
+   modelo traduce al vocabulario del documento) pesan el doble que los que
+   agrega el diccionario de sinónimos (ver `factor` en `buscar_estrategias`).
+
+El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a partir
+de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
+rankings distintos para la misma pregunta.
+
+`buscar_estrategias` devuelve las 5 mejores con su evidencia (`resultados`, lo
+único que ve el modelo) y los códigos de **todas** las que coincidieron en ese
+mismo orden (`codigos_ordenados`, sólo para el árbol). El árbol los marca todos
+en amarillo con una insignia: **Top 1** (la mejor), **Top 5** (de la 2.ª a la
+5.ª) y **Relacionada** (el resto), y baja al Top 1. Ojo: «Top 5» significa
+«entre las cinco primeras», no «buena coincidencia»; a veces la 2.ª ya es débil.
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
 capa), y eso es lo que la interfaz muestra en "Cómo se encontró" y lo que el

@@ -9,7 +9,7 @@ en lenguaje corriente a términos del documento y devuelve las estrategias donde
 esos términos aparecen. El chat se pliega hacia el lado para dejarle todo el
 ancho al árbol.
 
-Esto **orienta**. La ubicación definitiva la define el área competente.
+Esto **orienta**: cada resultado es una opción sugerida.
 
 ## Cómo correrlo
 
@@ -54,12 +54,19 @@ El orden de los resultados también es una regla declarada, no un puntaje:
 1. cuántos de los términos buscados aparecen en la estrategia;
 2. en qué campo aparecen: las palabras clave y el nombre de la estrategia pesan
    más que el tema, y el tema más que la descripción;
-3. las palabras que escribió la persona pesan el doble que las que agregó el
-   diccionario.
+3. los términos que llegan a la búsqueda (los de la persona y los que el modelo
+   traduce) pesan el doble que los que agregó el diccionario.
+
+Ese orden lo calcula `buscador.py`, no el modelo: el modelo sólo elige los
+términos de búsqueda.
 
 Cada resultado viene con la evidencia —qué término coincidió, en qué campo y por
-cuál capa— y la interfaz la muestra en «Cómo se encontró». Si la sugerencia está
-mal, se puede ver exactamente por qué.
+cuál capa— y la interfaz muestra las 5 mejores en «Cómo se encontró». Si la
+sugerencia está mal, se puede ver exactamente por qué.
+
+En el árbol, todas las estrategias que coincidieron se marcan en amarillo con una
+insignia: **Top 1** (la mejor; hacia ella baja el árbol), **Top 5** (de la 2.ª a
+la 5.ª) y **Relacionada** (el resto).
 
 ## Qué hace el modelo y qué no
 

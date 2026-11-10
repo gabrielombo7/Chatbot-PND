@@ -123,7 +123,8 @@ nombres, no agregas estrategias "parecidas" de tu conocimiento general.
 estrategia, en el tema o en la descripción. Esa es la justificación de la sugerencia y la \
 persona necesita verla para juzgarla.
 - Presentas entre 1 y 4 opciones, de la más a la menos respaldada, y dejas la decisión a \
-la persona. Escribes "podría corresponder a", no "corresponde a".
+la persona. Cada una va rotulada «Opción sugerida» (Opción sugerida 1, Opción sugerida 2…). \
+Escribes "podría corresponder a", no "corresponde a".
 - Si la coincidencia fue sólo en la descripción, lo adviertes: es una señal más débil que \
 una coincidencia en las palabras clave.
 - Si la herramienta tradujo palabras con el diccionario de sinónimos (vienen marcadas en \
@@ -133,13 +134,11 @@ apareció un resultado que no usa las palabras de la pregunta.
 inversiones ni montos, no afirmas que algo "se debe" radicar en un lugar.
 - Si la pregunta no es sobre ubicar algo en el PND, lo dices en una frase y no respondes \
 con conocimiento general.
-- Cierras recordando, sin solemnidad, que esto orienta y que la ubicación definitiva la \
-define el área competente.
 - La estructura del PND todavía está en elaboración. Si viene al caso, lo señalas.
 
 FORMATO
-Breve. Para cada opción: el código, el nombre de la estrategia, el eje y el tema, y una \
-línea con dónde coincidió. Sin encabezados grandes ni listas largas. Nada de tablas."""
+Breve. Para cada opción: «Opción sugerida N», el código, el nombre de la estrategia, el eje \
+y el tema, y una línea con dónde coincidió. Sin encabezados grandes ni listas largas. Nada de tablas."""
 
 
 def responder(client, historial):
@@ -147,7 +146,7 @@ def responder(client, historial):
 
     Devuelve (texto, llamadas, codigos, terminos):
       llamadas: detalle de cada llamada a herramienta, para mostrar la evidencia
-      codigos:  códigos de estrategia encontrados, para señalarlos en el árbol
+      codigos:  códigos encontrados, de mejor a peor, para señalarlos en el árbol
       terminos: términos buscados, para resaltarlos en el árbol
     """
     llamadas, codigos, terminos = [], [], set()
@@ -179,16 +178,20 @@ def responder(client, historial):
 
             llamadas.append({"herramienta": bloque.name, "argumentos": bloque.input,
                              "resultado": salida})
+            para_modelo = salida
             if isinstance(salida, dict):
-                for r in salida.get("resultados", []):
-                    if r["codigo"] not in codigos:
-                        codigos.append(r["codigo"])
+                for cod in salida.get("codigos_ordenados", []):
+                    if cod not in codigos:
+                        codigos.append(cod)
                 terminos.update(t for t in salida.get("terminos_buscados", []) if len(t) > 2)
-                if salida.get("codigo"):
-                    codigos.append(salida["codigo"]) if salida["codigo"] not in codigos else None
+                if salida.get("codigo") and salida["codigo"] not in codigos:
+                    codigos.append(salida["codigo"])
+                # La lista completa de códigos es para el árbol; el modelo sólo
+                # ve las mejores, con su evidencia.
+                para_modelo = {k: v for k, v in salida.items() if k != "codigos_ordenados"}
 
             resultados.append({"type": "tool_result", "tool_use_id": bloque.id,
-                               "content": json.dumps(salida, ensure_ascii=False)})
+                               "content": json.dumps(para_modelo, ensure_ascii=False)})
         mensajes.append({"role": "user", "content": resultados})
 
     return ("La consulta dio demasiadas vueltas y se detuvo. Intenta con una pregunta "

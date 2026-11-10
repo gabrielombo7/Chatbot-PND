@@ -41,6 +41,9 @@ st.markdown("""
   .stApp{background:#FBFBFC}
   .block-container{padding-top:1.5rem;padding-bottom:1rem;max-width:1500px}
   html,body,[class*="st-"],.stMarkdown{font-family:"IBM Plex Sans",system-ui,sans-serif}
+  /* Los iconos de Streamlit son una fuente de ligaduras: si se les pisa la fuente,
+     se ve el nombre del icono (p. ej. «_arrow_right») en vez del dibujo. */
+  [data-testid="stIconMaterial"]{font-family:"Material Symbols Rounded" !important}
   #MainMenu,footer,header{visibility:hidden}
 
   .titulo{font-family:"Source Serif 4",Georgia,serif;font-size:27px;font-weight:600;
@@ -110,8 +113,8 @@ with enc_izq:
         '<p class="titulo">Orientador del Plan Nacional de Desarrollo 2026-2030</p>'
         f'<p class="bajada">Dónde se ubicaría una idea en la estructura del Plan: '
         f'{CAT["n_ejes"]} ejes, {CAT["n_temas"]} temas y {CAT["n_estrategias"]} '
-        f'estrategias. Orienta la búsqueda; la ubicación definitiva la define el área '
-        f'competente.</p>', unsafe_allow_html=True)
+        f'estrategias. Cada resultado es una opción sugerida.</p>',
+        unsafe_allow_html=True)
 with enc_der:
     st.write("")
     etiqueta = "Plegar el chat" if st.session_state.chat_abierto else "Abrir el chat"
@@ -127,8 +130,8 @@ st.markdown('<hr class="regla">', unsafe_allow_html=True)
 # ---------------------------------------------------------------------------
 def pintar_arbol():
     st.markdown('<p class="rotulo-col">Árbol del Plan</p>'
-                '<p class="ayuda-col">Haz clic en una estrategia para ver su '
-                'descripción y sus palabras clave. El buscador de esta sección es '
+                '<p class="ayuda-col">Haz clic en una estrategia para ver sus '
+                'palabras clave y, si quieres, su descripción. El buscador de esta sección es '
                 'literal: encuentra la palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
     components.html(
@@ -168,7 +171,7 @@ def pintar_chat():
     for i, msg in enumerate(st.session_state.historial):
         if not isinstance(msg.get("content"), str):
             continue
-        with st.chat_message(msg["role"], avatar="🧭" if msg["role"] == "assistant" else "🙂"):
+        with st.chat_message(msg["role"], avatar="🧭" if msg["role"] == "assistant" else "📝"):
             st.markdown(msg["content"])
             if msg["role"] == "assistant" and msg.get("llamadas"):
                 with st.expander("Cómo se encontró"):
@@ -181,8 +184,15 @@ def pintar_chat():
                             if dicc:
                                 st.caption("Del diccionario de sinónimos: "
                                            + ", ".join(dicc))
-                            st.caption(f"{res.get('n_resultados', 0)} estrategias "
-                                       f"contienen alguno de esos términos.")
+                            n_total = res.get("n_resultados", 0)
+                            n_mostr = res.get("n_mostrados", 0)
+                            if n_total > n_mostr:
+                                st.caption(f"Se muestran las {n_mostr} mejor ubicadas de "
+                                           f"{n_total} que contienen alguno de esos términos; "
+                                           "las demás aparecen como «Relacionada» en el árbol.")
+                            else:
+                                st.caption(f"{n_total} estrategias contienen alguno de "
+                                           "esos términos.")
                             for r in res.get("resultados", []):
                                 detalle = "; ".join(
                                     f"«{c['termino']}» en {c['campo']} ({c['tipo']})"
@@ -212,7 +222,7 @@ def pintar_chat():
         return
 
     st.session_state.historial.append({"role": "user", "content": pregunta})
-    with st.chat_message("user", avatar="🙂"):
+    with st.chat_message("user", avatar="📝"):
         st.markdown(pregunta)
     with st.chat_message("assistant", avatar="🧭"):
         with st.spinner("Buscando en la estructura…"):

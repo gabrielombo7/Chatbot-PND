@@ -38,7 +38,7 @@ def construir_datos(df) -> list:
                 "num": str(tema_n), "nombre": tema_nom,
                 "estrategias": [{
                     "cod": r["est_n"], "nombre": r["est"],
-                    "desc": r["desc"], "kw": r["kw_lista"], "fuente": r["fuente"],
+                    "desc": r["desc"], "kw": r["kw_lista"],
                 } for _, r in g_tema.iterrows()],
             })
         ejes.append({
@@ -132,8 +132,11 @@ PLANTILLA = """<!DOCTYPE html>
   .est-nom{font-family:var(--serif);font-size:16px;line-height:1.38;flex:1}
   .est.senalada{background:var(--marca);box-shadow:inset 3px 0 0 var(--marca-borde)}
   .est.senalada:hover{background:#FBEFC5}
-  .insignia{font-size:11px;font-weight:600;color:#7A5C00;background:#F6E3A1;
-    border-radius:4px;padding:1.5px 6px;white-space:nowrap;align-self:center}
+  .insignia{font-size:11px;font-weight:600;border-radius:4px;padding:1.5px 7px;
+    white-space:nowrap;align-self:center;letter-spacing:.01em}
+  .insignia.top1{background:#166534;color:#fff}
+  .insignia.top5{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
+  .insignia.rel{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
 
   /* ---------- ficha ---------- */
   .ficha{display:none;margin:2px 0 14px 48px;padding:15px 20px 16px;
@@ -144,27 +147,26 @@ PLANTILLA = """<!DOCTYPE html>
     font-weight:600;line-height:1.32}
   .ficha .ruta{font-size:12.5px;color:var(--tenue);margin:0 0 11px;
     line-height:1.45}
-  .ficha p.cuerpo{margin:0 0 13px;font-family:var(--serif);font-size:15px;
-    line-height:1.62;max-width:68ch;color:#262B33;white-space:pre-line}
-  /* Las descripciones largas se recortan hasta que se pidan completas. */
-  .ficha p.cuerpo.recortado{max-height:9.8em;overflow:hidden;
-    -webkit-mask-image:linear-gradient(#000 62%,transparent);
-    mask-image:linear-gradient(#000 62%,transparent);margin-bottom:2px}
-  button.vertodo{font:inherit;font-size:12.5px;font-weight:500;color:var(--realce);
-    background:none;border:0;padding:3px 0;margin:0 0 11px;cursor:pointer}
+  /* La descripción queda recogida hasta que se pide con el botón. */
+  button.vertodo{font:inherit;font-size:13px;font-weight:500;color:var(--realce);
+    background:none;border:0;padding:4px 0;margin:2px 0 0;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px}
   button.vertodo:hover{text-decoration:underline}
+  button.vertodo .flecha{margin-top:0;color:currentColor}
+  button.vertodo[aria-expanded=true] .flecha{transform:rotate(90deg)}
+  .desc{display:none;margin:8px 0 2px;padding-top:10px;border-top:1px solid var(--regla)}
+  .desc.abierta{display:block}
+  .desc p{margin:0;font-family:var(--serif);font-size:15px;line-height:1.62;
+    max-width:68ch;color:#262B33;white-space:pre-line}
   .ficha .vacio{font-family:var(--sans);font-size:13.5px;color:var(--tenue);
     font-style:normal;background:#F7F8FA;padding:9px 12px;border-radius:6px;
     max-width:68ch}
   .rotulo{font-size:12px;color:var(--suave);font-weight:500;margin:0 0 6px}
-  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 12px}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
   .chip{font-size:12.5px;background:#F2F4F7;color:#333A45;border-radius:5px;
     padding:3px 9px;line-height:1.45}
   .chip.coincide{background:var(--marca);color:#6B4F00;
     box-shadow:inset 0 0 0 1px var(--marca-borde)}
-  .fuente{font-size:12px;color:var(--tenue);border-top:1px solid var(--regla);
-    padding-top:9px;margin:0;line-height:1.5}
-
   mark{background:var(--marca);color:inherit;padding:0 1px;border-radius:2px;
     box-shadow:0 1px 0 var(--marca-borde)}
   .oculto{display:none !important}
@@ -194,8 +196,13 @@ PLANTILLA = """<!DOCTYPE html>
 
 <script>
 const EJES = __DATOS__;
-const SENALADAS = new Set(__SENALADAS__);
+const ORDEN = __SENALADAS__;   /* códigos del chat, de mejor a peor */
 const TERMINOS = __TERMINOS__;
+
+/* Top 1 = la mejor; Top 5 = de la 2.ª a la 5.ª; Relacionada = el resto. */
+const NIVEL = {};
+ORDEN.forEach((c, i) => { NIVEL[c] = i === 0 ? "top1" : (i < 5 ? "top5" : "rel"); });
+const ROTULO = {top1: "Top 1", top5: "Top 5", rel: "Relacionada"};
 
 const sinTildes = s => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,
@@ -233,22 +240,20 @@ const FLECHA = '<svg class="flecha" width="11" height="11" viewBox="0 0 24 24" '
   + 'stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
 
 function ficha(e, color){
-  const largo = e.desc && e.desc.length > 620;
-  const cuerpo = e.desc
-    ? '<p class="cuerpo' + (largo?' recortado':'') + '">' + resaltar(e.desc, TERMINOS) + '</p>'
-      + (largo ? '<button class="vertodo" type="button">Ver la descripción completa</button>' : '')
-    : '<p class="vacio">Esta estrategia aparece en el árbol sin descripción propia. '
-      + 'Las palabras clave y la fuente son la única referencia disponible.</p>';
+  const desc = e.desc
+    ? '<button class="vertodo" type="button" aria-expanded="false">' + FLECHA
+      + '<span class="vertodo-txt">Ver descripción</span></button>'
+      + '<div class="desc"><p>' + resaltar(e.desc, TERMINOS) + '</p></div>'
+    : '<p class="vacio">Esta estrategia aparece en el árbol sin descripción propia.'
+      + (e.kw.length ? ' Las palabras clave son la única referencia disponible.' : '') + '</p>';
   const chips = e.kw.length
     ? '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k => {
         const coincide = TERMINOS.some(t => sinTildes(k).includes(sinTildes(t)) && t.length>2);
         return '<span class="chip' + (coincide?' coincide':'') + '">' + esc(k) + '</span>';
       }).join("") + '</div>'
     : "";
-  const fuente = e.fuente
-    ? '<p class="fuente">Fuente: ' + esc(e.fuente) + '</p>' : "";
   return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">'
-    + cuerpo + chips + fuente + '</div>';
+    + chips + desc + '</div>';
 }
 
 function dibujar(){
@@ -256,13 +261,13 @@ function dibujar(){
   for(const eje of EJES){
     const temas = eje.temas.map(t => {
       const ests = t.estrategias.map(e => {
-        const sen = SENALADAS.has(e.cod);
-        return '<div class="est' + (sen?' senalada':'') + '" role="button" tabindex="0"'
+        const nivel = NIVEL[e.cod];
+        return '<div class="est' + (nivel?' senalada '+nivel:'') + '" role="button" tabindex="0"'
           + ' aria-expanded="false" data-cod="' + esc(e.cod) + '"'
           + ' data-buscar="' + esc(sinTildes(e.cod+" "+e.nombre+" "+t.nombre+" "+e.kw.join(" ")+" "+(e.desc||""))) + '">'
           + '<span class="est-cod">' + esc(e.cod) + '</span>'
           + '<span class="est-nom">' + resaltar(e.nombre, TERMINOS) + '</span>'
-          + (sen ? '<span class="insignia">del chat</span>' : "")
+          + (nivel ? '<span class="insignia ' + nivel + '">' + ROTULO[nivel] + '</span>' : "")
           + '</div>' + ficha(e, eje.color);
       }).join("");
       const n = t.estrategias.length;
@@ -290,9 +295,10 @@ function alternar(el){
 document.getElementById("arbol").addEventListener("click", ev => {
   const ver = ev.target.closest("button.vertodo");
   if(ver){
-    const p = ver.previousElementSibling;
-    const recortado = p.classList.toggle("recortado");
-    ver.textContent = recortado ? "Ver la descripción completa" : "Recoger la descripción";
+    const abierta = ver.nextElementSibling.classList.toggle("abierta");
+    ver.setAttribute("aria-expanded", abierta ? "true" : "false");
+    ver.querySelector(".vertodo-txt").textContent =
+      abierta ? "Ocultar descripción" : "Ver descripción";
     return;
   }
   const el = ev.target.closest(".est");
@@ -361,18 +367,20 @@ document.getElementById("cerrar").onclick = () => {
   document.querySelectorAll("details").forEach(d => d.open = false);
   document.querySelectorAll(".ficha").forEach(f => f.classList.remove("abierta"));
   document.querySelectorAll(".est").forEach(e => e.setAttribute("aria-expanded","false"));
+  /* Al quedar corto el árbol, vuelve al inicio para que no quede espacio en blanco. */
+  window.scrollTo(0, 0);
 };
 
 dibujar();
 filtrar();
 
-/* Si el chat señaló estrategias, se abren sus ramas y se baja a la primera. */
-if(SENALADAS.size){
+/* Si el chat señaló estrategias, se abren sus ramas y se baja al Top 1. */
+if(ORDEN.length){
   document.querySelectorAll(".est.senalada").forEach(e => {
     let p = e.parentElement;
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
-  const primera = document.querySelector(".est.senalada");
+  const primera = document.querySelector(".est.top1");
   if(primera) setTimeout(() => primera.scrollIntoView({block:"center",
     behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth"}), 160);
 }
@@ -383,11 +391,12 @@ if(SENALADAS.size){
 def render(df, senaladas=None, terminos=None) -> str:
     """Devuelve el HTML del árbol.
 
-    senaladas: códigos de estrategia a resaltar (los que encontró el chat).
+    senaladas: códigos a resaltar (los del chat), de mejor a peor: el primero
+               es el Top 1, del 2.º al 5.º el Top 5 y el resto «Relacionada».
     terminos:  términos a resaltar dentro del texto.
     """
     datos = construir_datos(df)
     return (PLANTILLA
             .replace("__DATOS__", json.dumps(datos, ensure_ascii=False))
-            .replace("__SENALADAS__", json.dumps(sorted(senaladas or []), ensure_ascii=False))
+            .replace("__SENALADAS__", json.dumps(list(senaladas or []), ensure_ascii=False))
             .replace("__TERMINOS__", json.dumps(sorted(terminos or []), ensure_ascii=False)))

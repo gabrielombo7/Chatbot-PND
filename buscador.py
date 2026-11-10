@@ -15,6 +15,7 @@ cada una:
 El orden de los resultados también es una regla, no un puntaje:
   1) cuántos de los términos buscados aparecen en la estrategia;
   2) en qué campo aparecen (palabras clave y nombre pesan más que la descripción).
+Lo calcula esta función, no el modelo: el modelo sólo elige los términos.
 
 Cada resultado viene con la evidencia: qué término coincidió y en qué campo.
 """
@@ -244,11 +245,13 @@ def _coincide(termino: str, fila, usar_raiz: bool):
 # ---------------------------------------------------------------------------
 # Búsqueda principal (esta es la herramienta que llama el modelo)
 # ---------------------------------------------------------------------------
-def buscar_estrategias(terminos, max_resultados: int = 8, usar_raiz: bool = True) -> dict:
+def buscar_estrategias(terminos, max_resultados: int = 5, usar_raiz: bool = True) -> dict:
     """Busca estrategias del PND que contengan los términos dados.
 
     No interpreta la intención ni redacta nada: devuelve las estrategias donde
     los términos aparecen, con la evidencia de dónde apareció cada uno.
+    `resultados` trae sólo las mejores (con evidencia); `codigos_ordenados` trae
+    los códigos de TODAS las que coincidieron, en el mismo orden, para el árbol.
     """
     df = cargar_estructura()
     expandidos = expandir(terminos)
@@ -265,8 +268,9 @@ def buscar_estrategias(terminos, max_resultados: int = 8, usar_raiz: bool = True
                 campo, tipo = hallazgo
                 evidencia.append({"termino": e["termino"], "origen": e["origen"],
                                   "campo": campo, "tipo": tipo})
-                # Las palabras que escribió la persona pesan el doble que las
-                # que agregó el diccionario de sinónimos.
+                # Los términos que llegan a la herramienta (los de la persona y
+                # los que el modelo traduce) pesan el doble que los que agrega
+                # el diccionario de sinónimos.
                 factor = 2 if e["origen"] == "escrito" else 1
                 peso += PESO_CAMPO[campo] * factor
         if evidencia:
@@ -293,6 +297,7 @@ def buscar_estrategias(terminos, max_resultados: int = 8, usar_raiz: bool = True
         "n_resultados": len(resultados),
         "n_mostrados": len(recortados),
         "resultados": recortados,
+        "codigos_ordenados": [r["codigo"] for r in resultados],
         "mensaje": ("Ninguna estrategia contiene esos términos."
                     if not resultados else ""),
     }
