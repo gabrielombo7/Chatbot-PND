@@ -76,6 +76,7 @@ st.markdown("""
 # ---------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
 def cargar():
+    B.validar_reglas()
     return B.cargar_estructura(), B.catalogo()
 
 
@@ -141,9 +142,12 @@ def pintar_arbol():
         height=ALTO_ARBOL, scrolling=True)
 
 
+NOMBRE_NIVEL = {"top1": "Top 1", "top2": "Top 2"}
+
+
 def pintar_terminos(busquedas):
     """Términos que se buscaron y, aparte, qué sinónimos agregó el diccionario."""
-    vistos, buscados, aplicados = set(), [], []
+    vistos, buscados, aplicados, avisos = set(), [], [], []
     for b in busquedas:
         del_dicc = set(b.get("terminos_del_diccionario") or [])
         for t in b.get("terminos_buscados", []):
@@ -151,14 +155,18 @@ def pintar_terminos(busquedas):
                 vistos.add(t)
                 buscados.append(t)
         aplicados += b.get("sinonimos_aplicados", [])
+        avisos += [n for n in b.get("avisos_reglas", []) if n not in avisos]
     if buscados:
         st.markdown("**Términos buscados:** " + ", ".join(f"`{t}`" for t in buscados))
     for a in aplicados:
-        st.caption(f"El diccionario tradujo «{a['palabra']}» a: " + ", ".join(a["terminos"]))
+        st.caption(f"Sinónimos agregados a la búsqueda para «{a['palabra']}»: "
+                   + ", ".join(a["terminos"]))
+    for nota in avisos:
+        st.caption(nota)
 
 
 def pintar_otras(busquedas):
-    """Las que siguen a las más cercanas (que ya están en la respuesta)."""
+    """Las que siguen a las Top 1 (que ya están en la respuesta)."""
     en_respuesta = {r["codigo"] for b in busquedas for r in b.get("resultados", [])}
     vistas, otras = set(), []
     for b in busquedas:
@@ -174,12 +182,13 @@ def pintar_otras(busquedas):
                                 for c in r["coincidencias"])
             st.markdown(f"**{r['codigo']}** · {r['estrategia']}  \n"
                         f"<span style='color:#8A929E;font-size:12.5px'>"
-                        f"{r['pct_del_mejor']} % de la mejor · {detalle}</span>",
+                        f"{NOMBRE_NIVEL[r['nivel']]} · {r['pct_del_mejor']} % de la mejor · "
+                        f"{detalle}</span>",
                         unsafe_allow_html=True)
         n_total = busquedas[0].get("n_resultados", 0)
         if n_total > len(en_respuesta) + len(otras):
             st.caption(f"En total {n_total} estrategias contienen alguno de esos términos; "
-                       "las que no están aquí aparecen como «Relacionada» en el árbol.")
+                       "las que no están aquí aparecen como Top 3 en el árbol.")
 
 
 def pintar_chat():

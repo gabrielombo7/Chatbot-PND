@@ -31,6 +31,7 @@ El árbol y su buscador funcionan sin llave. La llave sólo hace falta para el c
 | `motor.py` | Herramientas que ve el modelo, reglas de comportamiento y ciclo de conversación. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La estructura. Se lee directo del Excel. |
 | `data/sinonimos.csv` | Diccionario editable de palabra corriente → término del documento. |
+| `data/reglas.csv` | Reglas editables: grupos de estrategias (p. ej. el eje 7) que solo se sugieren si la pregunta menciona sus palabras disparadoras. |
 
 ## Cómo busca
 
@@ -49,9 +50,9 @@ uso corriente al vocabulario del documento. Esta capa existe porque el documento
 no dice *colegio*, dice *infraestructura educativa*; no dice *beca*, dice
 *financiación estudiantil*.
 
-El orden de los resultados sale de un score que se explica en una línea. Se busca
-sólo en tres campos —**palabras clave, nombre de la estrategia y tema**; la descripción
-no cuenta— y, por cada término que coincide, se suma:
+El orden de los resultados sale de un score que se explica en una línea. Se busca en
+tres campos —**palabras clave, nombre de la estrategia y tema**— y, por cada término
+que coincide, se suma:
 
 > peso del campo × multiplicador de origen × especificidad del término
 
@@ -61,6 +62,9 @@ no cuenta— y, por cada término que coincide, se suma:
 - **Especificidad:** un término que aparece en muchas estrategias dice poco. Vale
   ln(total ÷ estrategias donde aparece): un término que está en 1 de las 123
   estrategias vale 4,8; uno que está en 26 vale 1,6.
+- **La descripción es el último recurso:** sólo se mira para un término que no
+  apareció en ningún otro campo, y pesa 1. La ficha avisa con «Ver descripción · aquí
+  coincide».
 
 Ese score lo calcula `buscador.py`, no el modelo: el modelo sólo elige los términos
 de búsqueda.
@@ -69,20 +73,28 @@ Con el score se arman tres niveles, siempre relativos al mejor resultado:
 
 | Nivel | Regla | Dónde se ve |
 |---|---|---|
-| **Más cercana** | ≥ 60 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
-| **Otra** | ≥ 15 % del mejor, hasta 10 | desplegable «Otras estrategias» y árbol |
-| **Relacionada** | el resto | sólo el árbol |
+| **Top 1** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
+| **Top 2** | ≥ 30 % del mejor, hasta 10 | desplegable «Otras estrategias» y árbol |
+| **Top 3** | el resto | sólo el árbol |
 
 Dos estrategias con el mismo score reciben el mismo trato: nunca se elige entre ellas.
-Los umbrales y los topes están al comienzo de `buscador.py` (`UMBRAL_CERCANAS`,
-`UMBRAL_OTRAS`, `MAX_CHAT`, `MAX_TOGGLE`).
+Los umbrales y los topes están al comienzo de `buscador.py` (`UMBRAL_TOP1`,
+`UMBRAL_TOP2`, `MAX_CHAT`, `MAX_TOGGLE`).
+
+**Reglas (`data/reglas.csv`).** Hay grupos de estrategias que solo tienen sentido para
+ciertas preguntas. Hoy: el **eje 7** (reconstrucción tras el sismo) solo se sugiere si
+la pregunta menciona un desastre —terremoto, incendio, inundación…—; si no, sus
+estrategias quedan en Top 3 y la respuesta lo dice. El archivo tiene tres columnas:
+`aplica_a` (`eje 7`, `tema 7.1` o un código `7.1.3`), `palabras_disparadoras`
+(separadas por `;`) y `nota` (si lleva comas, entre comillas). Se edita en Excel; si
+apunta a algo que no existe, la aplicación avisa al arrancar.
 
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
-interfaz la muestra: la respuesta trae las más cercanas y el desplegable «Otras
-estrategias» las siguientes. En el árbol, todas las que coincidieron se marcan en
-amarillo con su insignia; las más cercanas se abren solas y la ficha dice «Coincide
-con» qué términos, en qué campo. Si la sugerencia está mal, se puede ver exactamente
-por qué.
+interfaz la muestra: la respuesta trae las Top 1 y el desplegable «Otras estrategias»
+las siguientes. En el árbol, todas las que coincidieron se marcan en amarillo con su
+insignia, las Top 1 se abren solas con sus palabras clave resaltadas y los botones
+«Ver solo» (junto a Plegar/Desplegar) filtran por nivel. Si la sugerencia está mal, se
+puede ver exactamente por qué.
 
 ## Qué hace el modelo y qué no
 

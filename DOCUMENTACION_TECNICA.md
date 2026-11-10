@@ -139,28 +139,39 @@ Todo es comparación de texto, en tres capas, cada una explicable en una frase:
   de términos de la derecha separados por `;`.
 
 El **orden de los resultados** sale de un score declarado, no aprendido (función
-`buscar_estrategias`). Sólo se busca en palabras clave, nombre de la estrategia y
-tema; la descripción no cuenta. Por cada término que coincide se suma:
-peso del campo (`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen
-(×2 los términos que llegan a la herramienta, ×1 los que agrega el diccionario de
-sinónimos) × especificidad (ln(total ÷ estrategias donde aparece el término): un
-término frecuente como «infraestructura», en 26 de 123 estrategias, vale poco).
+`buscar_estrategias`). Se busca en palabras clave, nombre de la estrategia y tema; la
+descripción es el último recurso (sólo para un término que no apareció en ningún otro
+campo, con peso 1). Por cada término que coincide se suma: peso del campo
+(`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen (×2 los términos
+que llegan a la herramienta, ×1 los que agrega el diccionario de sinónimos) ×
+especificidad (ln(total ÷ estrategias donde aparece el término): un término frecuente
+como «infraestructura», en 26 de 123 estrategias, vale poco).
 
 El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a partir
 de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
 rankings distintos para la misma pregunta.
 
-Los **niveles** son umbrales sobre el score, relativos al mejor: *más cercanas*
-(≥ 60 %, incluidos los empates con el mejor; hasta 5 en el chat), *otras* (≥ 15 %,
-hasta 10, en el desplegable «Otras estrategias») y *relacionadas* (el resto, sólo en
-el árbol). Mismo score = mismo nivel; cuando un tope partiría un empate, el grupo
-entero baja de nivel. Las constantes están al inicio de `buscador.py`.
+Los **niveles** son umbrales sobre el score, relativos al mejor: *Top 1* (≥ 80 %,
+incluidos los empates con el mejor; hasta 5 en el chat), *Top 2* (≥ 30 %, hasta 10,
+en el desplegable «Otras estrategias») y *Top 3* (el resto, sólo en el árbol). Mismo
+score = mismo nivel; cuando un tope partiría un empate, el grupo entero baja de nivel.
+Las constantes están al inicio de `buscador.py`.
 
-`buscar_estrategias` devuelve `resultados` (las más cercanas con evidencia: lo
-único que ve el modelo) y, sólo para la interfaz, `otras`, `niveles` y
-`coincidencias` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El
-árbol marca todas en amarillo con su insignia, abre la ficha de las más cercanas y
-muestra «Coincide con» qué términos, en qué campo.
+Las **reglas** (`data/reglas.csv`, columnas `aplica_a`, `palabras_disparadoras`,
+`nota`) restringen grupos de estrategias: si la pregunta no menciona ninguna palabra
+disparadora (se compara por raíz y sólo con los términos que llegaron a la búsqueda,
+no con los del diccionario), el grupo queda en Top 3 y la interfaz muestra la nota.
+Hoy: el eje 7 (reconstrucción tras el sismo) sólo se sugiere si se habla de un
+desastre. Si todo lo que coincidió pertenece a un grupo restringido, se muestra igual.
+`validar_reglas()` corre al arrancar y falla con un mensaje claro si el archivo apunta
+a algo que no existe.
+
+`buscar_estrategias` devuelve `resultados` (las Top 1 con evidencia: lo único que ve el
+modelo) y, sólo para la interfaz, `otras`, `niveles`, `coincidencias` y
+`avisos_reglas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol
+marca todas en amarillo con su insignia, abre la ficha de las Top 1, resalta sus
+palabras clave que coincidieron (con la misma regla de raíz del buscador) y trae
+botones para ver sólo uno o varios niveles.
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
 capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin

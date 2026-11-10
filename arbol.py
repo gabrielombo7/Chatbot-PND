@@ -81,8 +81,14 @@ PLANTILLA = """<!DOCTYPE html>
   input[type=search]:focus{border-color:var(--realce);
     box-shadow:0 0 0 3px rgba(31,79,216,.13)}
   input[type=search]::-webkit-search-cancel-button{cursor:pointer}
-  .acciones{display:flex;gap:6px}
-  button.ctrl{font:inherit;font-size:13.5px;color:var(--suave);background:#fff;
+  .acciones{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .niveles{display:flex;gap:6px;align-items:center;margin-left:6px;padding-left:12px;
+    border-left:1px solid var(--regla)}
+  .niveles .rot{font-size:12.5px;color:var(--tenue)}
+  button.ctrl[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+  button.ctrl .n{opacity:.7;font-variant-numeric:tabular-nums}
+  button.vertodo.coincide{background:var(--marca);border-radius:5px;padding:4px 8px;
+    box-shadow:inset 0 0 0 1px var(--marca-borde);color:#6B4F00}  button.ctrl{font:inherit;font-size:13.5px;color:var(--suave);background:#fff;
     border:1px solid var(--regla);border-radius:7px;padding:8px 13px;cursor:pointer;
     transition:background .13s,color .13s,border-color .13s}
   button.ctrl:hover{background:#F2F4F7;color:var(--tinta)}
@@ -134,9 +140,9 @@ PLANTILLA = """<!DOCTYPE html>
   .est.senalada:hover{background:#FBEFC5}
   .insignia{font-size:11px;font-weight:600;border-radius:4px;padding:1.5px 7px;
     white-space:nowrap;align-self:center;letter-spacing:.01em}
-  .insignia.cerca{background:#166534;color:#fff}
-  .insignia.otra{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
-  .insignia.rel{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
+  .insignia.t1{background:#166534;color:#fff}
+  .insignia.t2{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
+  .insignia.t3{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
 
   /* ---------- ficha ---------- */
   .ficha{display:none;margin:2px 0 14px 48px;padding:15px 20px 16px;
@@ -165,7 +171,6 @@ PLANTILLA = """<!DOCTYPE html>
   .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
   .chip{font-size:12.5px;background:#F2F4F7;color:#333A45;border-radius:5px;
     padding:3px 9px;line-height:1.45}
-  .chip .donde{font-weight:400;opacity:.72}
   .chip.coincide{background:var(--marca);color:#6B4F00;
     box-shadow:inset 0 0 0 1px var(--marca-borde)}
   mark{background:var(--marca);color:inherit;padding:0 1px;border-radius:2px;
@@ -197,14 +202,14 @@ PLANTILLA = """<!DOCTYPE html>
 
 <script>
 const EJES = __DATOS__;
-const NIVELES = __NIVELES__;   /* {cercanas:[...], otras:[...], relacionadas:[...]} */
+const NIVELES = __NIVELES__;   /* {top1:[...], top2:[...], top3:[...]} */
 const COINC = __COINCIDENCIAS__;   /* {código: [{termino, campo}]} */
 const TERMINOS = __TERMINOS__;
 
 const NIVEL = {};
-const CLASE = {cercanas: "cerca", otras: "otra", relacionadas: "rel"};
+const CLASE = {top1: "t1", top2: "t2", top3: "t3"};
 for(const k in CLASE) (NIVELES[k] || []).forEach(c => { NIVEL[c] = CLASE[k]; });
-const ROTULO = {cerca: "Más cercana", otra: "Otra", rel: "Relacionada"};
+const ROTULO = {t1: "Top 1", t2: "Top 2", t3: "Top 3"};
 const HAY_NIVELES = Object.keys(NIVEL).length > 0;
 
 const sinTildes = s => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
@@ -242,27 +247,37 @@ const FLECHA = '<svg class="flecha" width="11" height="11" viewBox="0 0 24 24" '
   + 'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" '
   + 'stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
 
+/* Misma regla de raíz que buscador.py: 8+ letras -> 6; 6-7 -> 5; menos, completa. */
+const raiz = w => w.length >= 8 ? w.slice(0,6) : (w.length >= 6 ? w.slice(0,5) : w);
+const palabras = s => sinTildes(s).replace(/[^a-z0-9ñ ]/g," ").split(/\\s+/).filter(w => w.length >= 4);
+function chipCoincide(k, terminosKw){
+  const kn = sinTildes(k), kr = new Set(palabras(k).map(raiz));
+  return terminosKw.some(t => {
+    if(kn.includes(sinTildes(t))) return true;
+    const tr = palabras(t).map(raiz);
+    return tr.length > 0 && tr.every(r => kr.has(r));
+  });
+}
+
 function ficha(e, color){
+  const co = COINC[e.cod] || [];
+  const terminosKw = co.filter(c => c.campo === "palabras clave").map(c => c.termino);
+  const enDesc = co.some(c => c.campo === "descripción");
+  const extra = enDesc ? " · aquí coincide" : "";
   const desc = e.desc
-    ? '<button class="vertodo" type="button" aria-expanded="false">' + FLECHA
-      + '<span class="vertodo-txt">Ver descripción</span></button>'
+    ? '<button class="vertodo' + (enDesc ? ' coincide' : '') + '" type="button" aria-expanded="false"'
+      + ' data-extra="' + extra + '">' + FLECHA
+      + '<span class="vertodo-txt">Ver descripción' + extra + '</span></button>'
       + '<div class="desc"><p>' + resaltar(e.desc, TERMINOS) + '</p></div>'
     : '<p class="vacio">Esta estrategia aparece en el árbol sin descripción propia.'
       + (e.kw.length ? ' Las palabras clave son la única referencia disponible.' : '') + '</p>';
   const chips = e.kw.length
-    ? '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k => {
-        const coincide = TERMINOS.some(t => sinTildes(k).includes(sinTildes(t)) && t.length>2);
-        return '<span class="chip' + (coincide?' coincide':'') + '">' + esc(k) + '</span>';
-      }).join("") + '</div>'
-    : "";
-  const co = COINC[e.cod] || [];
-  const coincide = co.length
-    ? '<p class="rotulo">Coincide con</p><div class="chips">' + co.map(c =>
-        '<span class="chip coincide">' + esc(c.termino) + ' <span class="donde">· '
-        + esc(c.campo) + '</span></span>').join("") + '</div>'
+    ? '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k =>
+        '<span class="chip' + (chipCoincide(k, terminosKw) ? ' coincide' : '') + '">'
+        + esc(k) + '</span>').join("") + '</div>'
     : "";
   return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">'
-    + coincide + chips + desc + '</div>';
+    + chips + desc + '</div>';
 }
 
 function dibujar(){
@@ -307,7 +322,7 @@ document.getElementById("arbol").addEventListener("click", ev => {
     const abierta = ver.nextElementSibling.classList.toggle("abierta");
     ver.setAttribute("aria-expanded", abierta ? "true" : "false");
     ver.querySelector(".vertodo-txt").textContent =
-      abierta ? "Ocultar descripción" : "Ver descripción";
+      (abierta ? "Ocultar descripción" : "Ver descripción") + (ver.dataset.extra || "");
     return;
   }
   const el = ev.target.closest(".est");
@@ -324,13 +339,16 @@ const caja = document.getElementById("q");
 const conteo = document.getElementById("conteo");
 const nada = document.getElementById("nada");
 
+const FILTRO = new Set();   /* niveles elegidos con los botones; vacío = todo el árbol */
+const pasaNivel = e => FILTRO.size === 0 || [...FILTRO].some(n => e.classList.contains(n));
+
 function filtrar(){
   const t = sinTildes(caja.value.trim());
   const ests = document.querySelectorAll(".est");
   let visibles = 0;
 
   ests.forEach(e => {
-    const pasa = !t || e.dataset.buscar.includes(t);
+    const pasa = (!t || e.dataset.buscar.includes(t)) && pasaNivel(e);
     e.classList.toggle("oculto", !pasa);
     if(!pasa) document.getElementById("f-" + e.dataset.cod).classList.remove("abierta");
     document.getElementById("f-" + e.dataset.cod).classList.toggle("oculto", !pasa);
@@ -340,23 +358,27 @@ function filtrar(){
   document.querySelectorAll("details.tema").forEach(d => {
     const hay = d.querySelectorAll(".est:not(.oculto)").length;
     d.classList.toggle("oculto", hay === 0);
-    if(t) d.open = hay > 0;
+    if(t || FILTRO.size) d.open = hay > 0;
   });
   document.querySelectorAll("details.eje").forEach(d => {
     const hay = d.querySelectorAll(".est:not(.oculto)").length;
     d.classList.toggle("oculto", hay === 0);
-    if(t) d.open = hay > 0;
+    if(t || FILTRO.size) d.open = hay > 0;
   });
 
-  if(t){
-    conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length
-      + " estrategias contienen «" + esc(caja.value.trim()) + "»";
+  if(t || FILTRO.size){
+    const cuales = [...FILTRO].sort().map(n => ROTULO[n]).join(" + ");
+    conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length + " estrategias"
+      + (t ? " contienen «" + esc(caja.value.trim()) + "»" : "")
+      + (t && FILTRO.size ? " en " : "") + (!t ? " en " : "") + cuales;
     nada.classList.toggle("oculto", visibles > 0);
     if(visibles === 0){
-      nada.innerHTML = "Ninguna estrategia contiene <b>«" + esc(caja.value.trim())
-        + "»</b>. Esta búsqueda es literal: encuentra la palabra sólo si está escrita "
-        + "igual en el árbol. Para una búsqueda que traduzca al vocabulario del "
-        + "documento, usa el chat.";
+      nada.innerHTML = t
+        ? "Ninguna estrategia contiene <b>«" + esc(caja.value.trim())
+          + "»</b>" + (FILTRO.size ? " en " + cuales : "") + ". Esta búsqueda es literal: "
+          + "encuentra la palabra sólo si está escrita igual en el árbol. Para una búsqueda "
+          + "que traduzca al vocabulario del documento, usa el chat."
+        : "Ninguna estrategia en " + cuales + ".";
     }
   } else {
     conteo.innerHTML = "<b>" + ests.length + "</b> estrategias en "
@@ -381,17 +403,39 @@ document.getElementById("cerrar").onclick = () => {
 };
 
 dibujar();
+
+/* Botones para ver sólo uno o varios niveles; aparecen al lado de Plegar/Desplegar. */
+if(HAY_NIVELES){
+  const grupo = document.createElement("div");
+  grupo.className = "niveles";
+  grupo.innerHTML = '<span class="rot">Ver solo:</span>' + ["t1","t2","t3"].map(c => {
+    const n = document.querySelectorAll(".est." + c).length;
+    return n ? '<button class="ctrl" type="button" data-n="' + c + '" aria-pressed="false">'
+      + ROTULO[c] + ' <span class="n">(' + n + ')</span></button>' : "";
+  }).join("");
+  document.querySelector(".acciones").appendChild(grupo);
+  grupo.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-n]");
+    if(!b) return;
+    const n = b.dataset.n;
+    if(FILTRO.has(n)) FILTRO.delete(n); else FILTRO.add(n);
+    b.setAttribute("aria-pressed", FILTRO.has(n) ? "true" : "false");
+    filtrar();
+    const destino = document.querySelector(FILTRO.size ? ".est.senalada:not(.oculto)" : ".est.t1");
+    if(destino) destino.scrollIntoView({block:"center", behavior:"auto"});
+  });
+}
 filtrar();
 
-/* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las más
-   cercanas (todas por igual) y se baja a la primera en el orden del árbol. */
+/* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las Top 1
+   (todas por igual) y se baja a la primera en el orden del árbol. */
 if(HAY_NIVELES){
   document.querySelectorAll(".est.senalada").forEach(e => {
     let p = e.parentElement;
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
-  document.querySelectorAll(".est.cerca").forEach(e => alternar(e));
-  const primera = document.querySelector(".est.cerca");
+  document.querySelectorAll(".est.t1").forEach(e => alternar(e));
+  const primera = document.querySelector(".est.t1");
   if(primera) setTimeout(() => primera.scrollIntoView({block:"center",
     behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth"}), 160);
 }
@@ -402,10 +446,10 @@ if(HAY_NIVELES){
 def render(df, niveles=None, terminos=None, coincidencias=None) -> str:
     """Devuelve el HTML del árbol.
 
-    niveles:       {'cercanas': [...], 'otras': [...], 'relacionadas': [...]} con los
+    niveles:       {'top1': [...], 'top2': [...], 'top3': [...]} con los
                    códigos que encontró el chat; se marcan en amarillo con su insignia.
     terminos:      términos a resaltar dentro del texto.
-    coincidencias: {código: [{'termino', 'campo'}]}, para la línea «Coincide con».
+    coincidencias: {código: [{'termino', 'campo'}]}, para resaltar palabras clave.
     """
     datos = construir_datos(df)
     return (PLANTILLA
