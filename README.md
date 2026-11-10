@@ -61,7 +61,7 @@ Ese orden lo calcula `buscador.py`, no el modelo: el modelo sólo elige los
 términos de búsqueda.
 
 Cada resultado viene con la evidencia —qué término coincidió, en qué campo y por
-cuál capa— y la interfaz muestra las 5 mejores en «Cómo se encontró». Si la
+cuál capa— y la interfaz muestra la mejor en la respuesta y las siguientes en «Otras estrategias». Si la
 sugerencia está mal, se puede ver exactamente por qué.
 
 En el árbol, todas las estrategias que coincidieron se marcan en amarillo con una

@@ -381,6 +381,7 @@ if(ORDEN.length){
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
   const primera = document.querySelector(".est.top1");
+  if(primera) alternar(primera);   /* abre su ficha: palabras clave a la vista */
   if(primera) setTimeout(() => primera.scrollIntoView({block:"center",
     behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth"}), 160);
 }

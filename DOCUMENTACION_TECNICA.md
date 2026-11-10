@@ -160,7 +160,7 @@ en amarillo con una insignia: **Top 1** (la mejor), **Top 5** (de la 2.ª a la
 «entre las cinco primeras», no «buena coincidencia»; a veces la 2.ª ya es débil.
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
-capa), y eso es lo que la interfaz muestra en "Cómo se encontró" y lo que el
+capa), y eso es lo que la interfaz muestra en "Otras estrategias" y lo que el
 LLM usa para redactar, sin tener que inventar justificaciones.
 
 **Por qué importa esta separación:** todo lo que decide *qué estrategias
@@ -173,7 +173,7 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 
 | Archivo | Qué contiene |
 |---|---|
-| `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, el expander "Cómo se encontró". |
+| `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, y el expander "Otras estrategias". |
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.components.v1.html`). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |

@@ -30,7 +30,7 @@ st.set_page_config(page_title="Orientador del PND 2026-2030",
                    page_icon="🧭", layout="wide",
                    initial_sidebar_state="collapsed")
 
-ALTO_ARBOL = 680
+ALTO_ARBOL = 760
 
 # ---------------------------------------------------------------------------
 # Estilos de la página (el árbol trae los suyos aparte)
@@ -139,6 +139,46 @@ def pintar_arbol():
         height=ALTO_ARBOL, scrolling=True)
 
 
+def pintar_terminos(busquedas):
+    """Términos que se buscaron y, aparte, qué sinónimos agregó el diccionario."""
+    vistos, buscados, aplicados = set(), [], []
+    for b in busquedas:
+        del_dicc = set(b.get("terminos_del_diccionario") or [])
+        for t in b.get("terminos_buscados", []):
+            if t not in del_dicc and t not in vistos:
+                vistos.add(t)
+                buscados.append(t)
+        aplicados += b.get("sinonimos_aplicados", [])
+    if buscados:
+        st.markdown("**Términos buscados:** " + ", ".join(f"`{t}`" for t in buscados))
+    for a in aplicados:
+        st.caption(f"El diccionario tradujo «{a['palabra']}» a: " + ", ".join(a["terminos"]))
+
+
+def pintar_otras(busquedas):
+    """Las mejores después de la primera (que ya está en la respuesta)."""
+    vistas, otras = set(), []
+    for b in busquedas:
+        for r in b.get("resultados", []):
+            if r["codigo"] not in vistas:
+                vistas.add(r["codigo"])
+                otras.append(r)
+    otras = otras[1:]
+    if not otras:
+        return
+    with st.expander("Otras estrategias"):
+        for r in otras:
+            detalle = "; ".join(f"«{c['termino']}» en {c['campo']} ({c['tipo']})"
+                                for c in r["coincidencias"])
+            st.markdown(f"**{r['codigo']}** · {r['estrategia']}  \n"
+                        f"<span style='color:#8A929E;font-size:12.5px'>{detalle}</span>",
+                        unsafe_allow_html=True)
+        n_total = busquedas[0].get("n_resultados", 0)
+        if n_total > busquedas[0].get("n_mostrados", 0):
+            st.caption(f"En total {n_total} estrategias contienen alguno de esos términos; "
+                       "las que no están aquí aparecen como «Relacionada» en el árbol.")
+
+
 def pintar_chat():
     st.markdown('<p class="rotulo-col">Dónde ubico mi idea</p>'
                 '<p class="ayuda-col">Describe el proyecto en tus palabras. '
@@ -172,37 +212,15 @@ def pintar_chat():
         if not isinstance(msg.get("content"), str):
             continue
         with st.chat_message(msg["role"], avatar="🧭" if msg["role"] == "assistant" else "📝"):
+            busquedas = [ll["resultado"] for ll in msg.get("llamadas", [])
+                         if ll["herramienta"] == "buscar_estrategias"
+                         and isinstance(ll["resultado"], dict)]
+            es_resp = msg["role"] == "assistant" and busquedas
+            if es_resp:
+                pintar_terminos(busquedas)
             st.markdown(msg["content"])
-            if msg["role"] == "assistant" and msg.get("llamadas"):
-                with st.expander("Cómo se encontró"):
-                    for ll in msg["llamadas"]:
-                        res = ll["resultado"]
-                        if ll["herramienta"] == "buscar_estrategias":
-                            st.markdown("**Términos buscados:** "
-                                        + ", ".join(f"`{t}`" for t in res.get("terminos_buscados", [])))
-                            dicc = res.get("terminos_del_diccionario") or []
-                            if dicc:
-                                st.caption("Del diccionario de sinónimos: "
-                                           + ", ".join(dicc))
-                            n_total = res.get("n_resultados", 0)
-                            n_mostr = res.get("n_mostrados", 0)
-                            if n_total > n_mostr:
-                                st.caption(f"Se muestran las {n_mostr} mejor ubicadas de "
-                                           f"{n_total} que contienen alguno de esos términos; "
-                                           "las demás aparecen como «Relacionada» en el árbol.")
-                            else:
-                                st.caption(f"{n_total} estrategias contienen alguno de "
-                                           "esos términos.")
-                            for r in res.get("resultados", []):
-                                detalle = "; ".join(
-                                    f"«{c['termino']}» en {c['campo']} ({c['tipo']})"
-                                    for c in r["coincidencias"])
-                                st.markdown(f"**{r['codigo']}** · {r['estrategia']}  \n"
-                                            f"<span style='color:#8A929E;font-size:12.5px'>"
-                                            f"{detalle}</span>", unsafe_allow_html=True)
-                        else:
-                            st.markdown(f"**{ll['herramienta']}** · `{ll['argumentos']}`")
-                            st.json(res, expanded=False)
+            if es_resp:
+                pintar_otras(busquedas)
 
     with st.form("preguntar", clear_on_submit=True):
         texto = st.text_input("Tu pregunta", placeholder="Escribe tu pregunta…",
@@ -245,7 +263,7 @@ def pintar_chat():
 
 
 if st.session_state.chat_abierto:
-    col_arbol, col_chat = st.columns([1.5, 1], gap="large")
+    col_arbol, col_chat = st.columns([1.7, 1], gap="large")
     with col_arbol:
         pintar_arbol()
     with col_chat:

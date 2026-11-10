@@ -245,6 +245,16 @@ def _coincide(termino: str, fila, usar_raiz: bool):
 # ---------------------------------------------------------------------------
 # Búsqueda principal (esta es la herramienta que llama el modelo)
 # ---------------------------------------------------------------------------
+def _extracto(desc: str, n: int = 280) -> str:
+    """Comienzo de la descripción, cortado en un punto si se puede. Es texto
+    literal del documento: de aquí sale lo que el modelo resume."""
+    d = " ".join(str(desc).split())
+    if len(d) <= n:
+        return d
+    corte = d.rfind(". ", 0, n)
+    return d[:corte + 1] if corte > n // 2 else d[:n].rstrip() + "…"
+
+
 def buscar_estrategias(terminos, max_resultados: int = 5, usar_raiz: bool = True) -> dict:
     """Busca estrategias del PND que contengan los términos dados.
 
@@ -281,6 +291,7 @@ def buscar_estrategias(terminos, max_resultados: int = 5, usar_raiz: bool = True
                 "tema": f"{fila['tema_n']} {fila['tema']}".strip(),
                 "palabras_clave": fila["kw_lista"],
                 "tiene_descripcion": bool(fila["desc"]),
+                "extracto": _extracto(fila["desc"]),
                 "n_terminos_coincidentes": len({ev["termino"] for ev in evidencia}),
                 "peso_campos": peso,
                 "coincidencias": evidencia,
@@ -291,9 +302,17 @@ def buscar_estrategias(terminos, max_resultados: int = 5, usar_raiz: bool = True
     resultados.sort(key=lambda r: (-r["n_terminos_coincidentes"], -r["peso_campos"], r["codigo"]))
 
     recortados = resultados[:max_resultados]
+
+    # Qué palabra disparó qué sinónimos, para mostrarlo tal cual en la interfaz.
+    aplicados = {}
+    for e in expandidos:
+        if e["origen"].startswith("diccionario: "):
+            aplicados.setdefault(e["origen"][len("diccionario: "):], []).append(e["termino"])
+
     return {
         "terminos_buscados": [e["termino"] for e in expandidos],
         "terminos_del_diccionario": [e["termino"] for e in expandidos if e["origen"] != "escrito"],
+        "sinonimos_aplicados": [{"palabra": k, "terminos": v} for k, v in aplicados.items()],
         "n_resultados": len(resultados),
         "n_mostrados": len(recortados),
         "resultados": recortados,
