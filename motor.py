@@ -19,7 +19,7 @@ MAX_TOKENS = 1200
 MAX_VUELTAS = 6          # tope de iteraciones del ciclo de herramientas
 MAX_TURNOS_HISTORIAL = 8  # cuántos mensajes previos se reenvían al modelo
 # Claves del resultado de la búsqueda que sólo usa la interfaz (el modelo no las ve).
-SOLO_INTERFAZ = ("otras", "niveles", "coincidencias", "avisos_reglas")
+SOLO_INTERFAZ = ("niveles", "coincidencias", "avisos_reglas")
 
 CAT = B.catalogo()
 
@@ -130,12 +130,12 @@ de la sugerencia y la persona necesita verla para juzgarla. Si fue sólo en la d
 lo adviertes: es una señal más débil.
 - Presentas todas las opciones que vienen en 'resultados': son las Top 1, casi \
 siempre una y varias sólo si empatan o están muy parejas. No las ordenes ni elijas entre \
-las que empatan. Las demás la persona las ve aparte, en «Otras estrategias»: no las \
+las que empatan. Las demás la persona las ve en el árbol, junto al chat: no las \
 menciones. Si 'n_top1' es mayor que las que vienen, agrega una línea: «Hay N \
-estrategias igual de cercanas (Top 1); el resto está en «Otras estrategias».» Escribes "podría \
+estrategias igual de cercanas (Top 1); el resto está en el árbol.» Escribes "podría \
 corresponder a", no "corresponde a". No menciones puntajes ni porcentajes.
-- La interfaz ya muestra arriba los términos buscados y los sinónimos aplicados: no los \
-repitas.
+- La interfaz ya muestra los términos buscados, y los sinónimos y demás notas van en el \
+desplegable «Notas»: no los repitas.
 - La línea «La estrategia se centra en…» resume SOLO el campo 'extracto' de esa opción, \
 sin agregar nada que no esté ahí. Si el extracto viene vacío, escribe en su lugar «Esta \
 estrategia no tiene descripción en el documento; sólo hay palabras clave.» No la completes \

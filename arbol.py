@@ -404,28 +404,46 @@ document.getElementById("cerrar").onclick = () => {
 
 dibujar();
 
-/* Botones para ver sólo uno o varios niveles; aparecen al lado de Plegar/Desplegar. */
+/* Botones «Mostrar»: Todos, Top 1, Top 2, Top 3. Los niveles se pueden combinar y
+   «Todos» quita el filtro. Aparecen al lado de Plegar/Desplegar. */
 if(HAY_NIVELES){
   const grupo = document.createElement("div");
   grupo.className = "niveles";
-  grupo.innerHTML = '<span class="rot">Ver solo:</span>' + ["t1","t2","t3"].map(c => {
-    const n = document.querySelectorAll(".est." + c).length;
-    return n ? '<button class="ctrl" type="button" data-n="' + c + '" aria-pressed="false">'
-      + ROTULO[c] + ' <span class="n">(' + n + ')</span></button>' : "";
-  }).join("");
+  grupo.innerHTML = '<span class="rot">Mostrar:</span>'
+    + '<button class="ctrl" type="button" data-n="" aria-pressed="true">Todos</button>'
+    + ["t1","t2","t3"].map(c => {
+      const n = document.querySelectorAll(".est." + c).length;
+      return n ? '<button class="ctrl" type="button" data-n="' + c + '" aria-pressed="false">'
+        + ROTULO[c] + ' <span class="n">(' + n + ')</span></button>' : "";
+    }).join("");
   document.querySelector(".acciones").appendChild(grupo);
+  const pintarEstado = () => grupo.querySelectorAll("button").forEach(b =>
+    b.setAttribute("aria-pressed",
+      String(b.dataset.n ? FILTRO.has(b.dataset.n) : FILTRO.size === 0)));
   grupo.addEventListener("click", ev => {
     const b = ev.target.closest("button[data-n]");
     if(!b) return;
     const n = b.dataset.n;
-    if(FILTRO.has(n)) FILTRO.delete(n); else FILTRO.add(n);
-    b.setAttribute("aria-pressed", FILTRO.has(n) ? "true" : "false");
+    if(!n) FILTRO.clear();
+    else if(FILTRO.has(n)) FILTRO.delete(n); else FILTRO.add(n);
+    pintarEstado();
     filtrar();
     const destino = document.querySelector(FILTRO.size ? ".est.senalada:not(.oculto)" : ".est.t1");
     if(destino) destino.scrollIntoView({block:"center", behavior:"auto"});
   });
 }
 filtrar();
+
+/* Lleva al Top 1: primero asegura que el árbol esté a la vista en la página y luego
+   centra la estrategia dentro del árbol. */
+function irAlTop1(suave){
+  const primera = document.querySelector(".est.t1");
+  if(!primera) return;
+  const quieto = !suave || matchMedia("(prefers-reduced-motion:reduce)").matches;
+  try{ if(window.frameElement) window.frameElement.scrollIntoView({block:"nearest", behavior:"auto"}); }
+  catch(e){}
+  primera.scrollIntoView({block:"center", behavior: quieto ? "auto" : "smooth"});
+}
 
 /* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las Top 1
    (todas por igual) y se baja a la primera en el orden del árbol. */
@@ -435,9 +453,9 @@ if(HAY_NIVELES){
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
   document.querySelectorAll(".est.t1").forEach(e => alternar(e));
-  const primera = document.querySelector(".est.t1");
-  if(primera) setTimeout(() => primera.scrollIntoView({block:"center",
-    behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth"}), 160);
+  setTimeout(() => irAlTop1(true), 160);
+  /* otra vez cuando ya cargaron las fuentes y el diseño se asentó */
+  setTimeout(() => irAlTop1(false), 900);
 }
 </script></body></html>
 """

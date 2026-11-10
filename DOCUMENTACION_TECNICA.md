@@ -153,7 +153,7 @@ rankings distintos para la misma pregunta.
 
 Los **niveles** son umbrales sobre el score, relativos al mejor: *Top 1* (≥ 80 %,
 incluidos los empates con el mejor; hasta 5 en el chat), *Top 2* (≥ 30 %, hasta 10,
-en el desplegable «Otras estrategias») y *Top 3* (el resto, sólo en el árbol). Mismo
+`MAX_TOP2`) y *Top 3* (el resto). Top 2 y Top 3 sólo se ven en el árbol. Mismo
 score = mismo nivel; cuando un tope partiría un empate, el grupo entero baja de nivel.
 Las constantes están al inicio de `buscador.py`.
 
@@ -167,7 +167,7 @@ desastre. Si todo lo que coincidió pertenece a un grupo restringido, se muestra
 a algo que no existe.
 
 `buscar_estrategias` devuelve `resultados` (las Top 1 con evidencia: lo único que ve el
-modelo) y, sólo para la interfaz, `otras`, `niveles`, `coincidencias` y
+modelo) y, sólo para la interfaz, `niveles`, `coincidencias` y
 `avisos_reglas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol
 marca todas en amarillo con su insignia, abre la ficha de las Top 1, resalta sus
 palabras clave que coincidieron (con la misma regla de raíz del buscador) y trae
@@ -187,7 +187,7 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 
 | Archivo | Qué contiene |
 |---|---|
-| `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, y el expander "Otras estrategias". |
+| `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, el expander "Notas" (sinónimos, reglas, totales y cómo se ordena, generado desde las constantes de `buscador.py`) y los tooltips de ayuda (CSS, sin JavaScript). |
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.components.v1.html`). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |

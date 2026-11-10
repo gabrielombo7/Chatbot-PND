@@ -74,12 +74,12 @@ Con el score se arman tres niveles, siempre relativos al mejor resultado:
 | Nivel | Regla | Dónde se ve |
 |---|---|---|
 | **Top 1** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
-| **Top 2** | ≥ 30 % del mejor, hasta 10 | desplegable «Otras estrategias» y árbol |
+| **Top 2** | ≥ 30 % del mejor, hasta 10 | árbol |
 | **Top 3** | el resto | sólo el árbol |
 
 Dos estrategias con el mismo score reciben el mismo trato: nunca se elige entre ellas.
 Los umbrales y los topes están al comienzo de `buscador.py` (`UMBRAL_TOP1`,
-`UMBRAL_TOP2`, `MAX_CHAT`, `MAX_TOGGLE`).
+`UMBRAL_TOP2`, `MAX_CHAT`, `MAX_TOP2`).
 
 **Reglas (`data/reglas.csv`).** Hay grupos de estrategias que solo tienen sentido para
 ciertas preguntas. Hoy: el **eje 7** (reconstrucción tras el sismo) solo se sugiere si
@@ -90,11 +90,15 @@ estrategias quedan en Top 3 y la respuesta lo dice. El archivo tiene tres column
 apunta a algo que no existe, la aplicación avisa al arrancar.
 
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
-interfaz la muestra: la respuesta trae las Top 1 y el desplegable «Otras estrategias»
-las siguientes. En el árbol, todas las que coincidieron se marcan en amarillo con su
-insignia, las Top 1 se abren solas con sus palabras clave resaltadas y los botones
-«Ver solo» (junto a Plegar/Desplegar) filtran por nivel. Si la sugerencia está mal, se
-puede ver exactamente por qué.
+interfaz la muestra. La respuesta del chat trae las Top 1 y, debajo, el desplegable
+«Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas que
+actuaron, términos buscados en la descripción como último recurso, cuántas
+estrategias coincidieron y cómo se calcula el orden. En el árbol, todas las que
+coincidieron se marcan en amarillo con su insignia; después de cada respuesta baja a
+la Top 1, que se abre sola con sus palabras clave resaltadas, y los botones
+«Mostrar: Todos · Top 1 · Top 2 · Top 3» (junto a Plegar/Desplegar) filtran por nivel.
+Dos pequeños «i» explican en pantalla qué es el chat y qué significan Top 1, 2 y 3.
+Si la sugerencia está mal, se puede ver exactamente por qué.
 
 ## Qué hace el modelo y qué no
 

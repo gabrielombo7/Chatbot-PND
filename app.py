@@ -57,6 +57,22 @@ st.markdown("""
   .aviso{font-size:12.5px;color:#6B6252;background:#FDFAF0;border:1px solid #EDE2C4;
     border-radius:7px;padding:9px 12px;line-height:1.5;margin:0 0 12px}
 
+  /* Tooltip de ayuda: sólo CSS, se abre con el cursor o con el foco (también al tocar). */
+  .tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
+    width:16px;height:16px;margin-left:7px;border:1px solid #C9CED6;border-radius:50%;
+    color:#8A929E;font:600 10.5px "IBM Plex Sans",sans-serif;cursor:help;
+    vertical-align:middle;outline:none}
+  .tip:hover,.tip:focus{color:#15181D;border-color:#8A929E}
+  .tip-cuerpo{display:none;position:absolute;top:calc(100% + 8px);left:-10px;z-index:60;
+    width:min(340px,78vw);background:#15181D;color:#F2F4F7;
+    font:400 12.5px/1.5 "IBM Plex Sans",sans-serif;padding:10px 12px;border-radius:8px;
+    box-shadow:0 6px 20px rgba(21,24,29,.28);text-align:left;cursor:default}
+  .tip.der .tip-cuerpo{left:auto;right:-10px}
+  .tip:hover .tip-cuerpo,.tip:focus .tip-cuerpo{display:block}
+  .tip-cuerpo b{font-weight:600;color:#fff}
+  .tip-cuerpo .tp{display:block;margin:0 0 6px}
+  .tip-cuerpo .tp:last-child{margin:0}
+
   div[data-testid="stChatMessage"]{background:transparent;padding:.35rem 0}
   .stButton>button{font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;
     border-radius:7px;border:1px solid #E3E6EB;background:#fff;color:#333A45;
@@ -130,8 +146,28 @@ st.markdown('<hr class="regla">', unsafe_allow_html=True)
 # ---------------------------------------------------------------------------
 # Secciones
 # ---------------------------------------------------------------------------
+def tip(cuerpo, lado="izq"):
+    return (f'<span class="tip {lado}" tabindex="0"><span aria-hidden="true">i</span>'
+            f'<span class="tip-cuerpo" role="tooltip">{cuerpo}</span></span>')
+
+
+TIP_ARBOL = (
+    "<span class=\"tp\"><b>Top 1, Top 2 y Top 3</b> son grupos de estrategias: las que encontró el chat, "
+    "según qué tan cerca están de tu pregunta.</span>"
+    "<span class=\"tp\"><b>Top 1:</b> la mejor, o las mejores si empatan. <b>Top 2:</b> parecidas. "
+    "<b>Top 3:</b> coincidencias débiles.</span>"
+    "<span class=\"tp\">Todas se pintan en amarillo; con «Mostrar» puedes ver sólo un grupo.</span>")
+
+TIP_CHAT = (
+    "<span class=\"tp\">Describe el proyecto en tus palabras. El asistente las traduce al vocabulario "
+    "del documento, busca por coincidencia de palabras y muestra dónde encontró cada "
+    "opción.</span>"
+    "<span class=\"tp\">El asistente no tiene el PND en memoria: cada respuesta sale de una búsqueda de "
+    "palabras sobre el archivo de estructura. Si la búsqueda no encuentra nada, lo dice.</span>")
+
+
 def pintar_arbol():
-    st.markdown('<p class="rotulo-col">Árbol del Plan</p>'
+    st.markdown('<div class="rotulo-col">Árbol del Plan' + tip(TIP_ARBOL) + '</div>'
                 '<p class="ayuda-col">Haz clic en una estrategia para ver sus '
                 'palabras clave y, si quieres, su descripción. El buscador de esta sección es '
                 'literal: encuentra la palabra sólo si está escrita igual.</p>',
@@ -142,60 +178,61 @@ def pintar_arbol():
         height=ALTO_ARBOL, scrolling=True)
 
 
-NOMBRE_NIVEL = {"top1": "Top 1", "top2": "Top 2"}
-
-
 def pintar_terminos(busquedas):
-    """Términos que se buscaron y, aparte, qué sinónimos agregó el diccionario."""
-    vistos, buscados, aplicados, avisos = set(), [], [], []
+    """Los términos que se buscaron (sin los que agregó el diccionario)."""
+    vistos, buscados = set(), []
     for b in busquedas:
         del_dicc = set(b.get("terminos_del_diccionario") or [])
         for t in b.get("terminos_buscados", []):
             if t not in del_dicc and t not in vistos:
                 vistos.add(t)
                 buscados.append(t)
-        aplicados += b.get("sinonimos_aplicados", [])
-        avisos += [n for n in b.get("avisos_reglas", []) if n not in avisos]
     if buscados:
         st.markdown("**Términos buscados:** " + ", ".join(f"`{t}`" for t in buscados))
-    for a in aplicados:
-        st.caption(f"Sinónimos agregados a la búsqueda para «{a['palabra']}»: "
-                   + ", ".join(a["terminos"]))
-    for nota in avisos:
-        st.caption(nota)
 
 
-def pintar_otras(busquedas):
-    """Las que siguen a las Top 1 (que ya están en la respuesta)."""
-    en_respuesta = {r["codigo"] for b in busquedas for r in b.get("resultados", [])}
-    vistas, otras = set(), []
+def pintar_notas(busquedas):
+    """Documentación de esta respuesta, en gris: sinónimos, reglas, totales y score."""
+    notas = []
     for b in busquedas:
-        for r in b.get("otras", []):
-            if r["codigo"] not in vistas and r["codigo"] not in en_respuesta:
-                vistas.add(r["codigo"])
-                otras.append(r)
-    if not otras:
-        return
-    with st.expander("Otras estrategias"):
-        for r in otras:
-            detalle = "; ".join(f"«{c['termino']}» en {c['campo']} ({c['tipo']})"
-                                for c in r["coincidencias"])
-            st.markdown(f"**{r['codigo']}** · {r['estrategia']}  \n"
-                        f"<span style='color:#8A929E;font-size:12.5px'>"
-                        f"{NOMBRE_NIVEL[r['nivel']]} · {r['pct_del_mejor']} % de la mejor · "
-                        f"{detalle}</span>",
-                        unsafe_allow_html=True)
-        n_total = busquedas[0].get("n_resultados", 0)
-        if n_total > len(en_respuesta) + len(otras):
-            st.caption(f"En total {n_total} estrategias contienen alguno de esos términos; "
-                       "las que no están aquí aparecen como Top 3 en el árbol.")
+        for a in b.get("sinonimos_aplicados", []):
+            notas.append(f"Sinónimos agregados a la búsqueda para «{a['palabra']}»: "
+                         + ", ".join(a["terminos"]) + ".")
+        notas += [n for n in b.get("avisos_reglas", []) if n not in notas]
+    en_desc = sorted({c["termino"] for b in busquedas
+                      for evs in b.get("coincidencias", {}).values()
+                      for c in evs if c["campo"] == "descripción"})
+    if en_desc:
+        notas.append("Sin coincidencia en palabras clave, nombre ni tema, estos términos se "
+                     "buscaron en la descripción como último recurso: "
+                     + ", ".join(f"«{t}»" for t in en_desc) + ".")
+
+    ult = busquedas[-1]
+    niv = ult.get("niveles") or {}
+    if ult.get("n_resultados"):
+        notas.append(f"Coinciden {ult['n_resultados']} de las {CAT['n_estrategias']} "
+                     f"estrategias: Top 1 ({len(niv.get('top1', []))}), "
+                     f"Top 2 ({len(niv.get('top2', []))}) y Top 3 ({len(niv.get('top3', []))}).")
+    else:
+        notas.append(f"Ninguna de las {CAT['n_estrategias']} estrategias contiene esos términos.")
+
+    pw = B.PESO_CAMPO
+    notas.append(
+        "Cómo se ordena: por cada término que coincide se suma el peso del campo "
+        f"(palabras clave {pw['palabras clave']}, nombre {pw['nombre de la estrategia']}, "
+        f"tema {pw['tema']}, descripción {pw['descripción']}) × el origen del término "
+        "(×2 los de tu pregunta, ×1 los sinónimos) × su especificidad (un término que "
+        "aparece en muchas estrategias vale menos). "
+        f"Top 1: desde el {round(100 * B.UMBRAL_TOP1)} % del mejor puntaje; "
+        f"Top 2: desde el {round(100 * B.UMBRAL_TOP2)} %; Top 3: el resto.")
+
+    with st.expander("Notas"):
+        for n in notas:
+            st.caption(n)
 
 
 def pintar_chat():
-    st.markdown('<p class="rotulo-col">Dónde ubico mi idea</p>'
-                '<p class="ayuda-col">Describe el proyecto en tus palabras. '
-                'El asistente los traduce al vocabulario del documento, busca por '
-                'coincidencia de palabras y muestra dónde encontró cada opción.</p>',
+    st.markdown('<div class="rotulo-col">Dónde ubico mi idea' + tip(TIP_CHAT, "der") + '</div>',
                 unsafe_allow_html=True)
 
     cli = cliente()
@@ -207,10 +244,6 @@ def pintar_chat():
         return
 
     if not st.session_state.historial:
-        st.markdown('<div class="aviso">El asistente no tiene el PND en memoria: '
-                    'cada respuesta sale de una búsqueda de palabras sobre el archivo de '
-                    'estructura. Si la búsqueda no encuentra nada, lo dice.</div>',
-                    unsafe_allow_html=True)
         st.caption("Para probar:")
         for ejemplo in ["Quiero construir un colegio, ¿a qué estrategia me remito?",
                         "¿Dónde van las becas de estudio?",
@@ -232,7 +265,7 @@ def pintar_chat():
                 pintar_terminos(busquedas)
             st.markdown(msg["content"])
             if es_resp:
-                pintar_otras(busquedas)
+                pintar_notas(busquedas)
 
     with st.form("preguntar", clear_on_submit=True):
         texto = st.text_input("Tu pregunta", placeholder="Escribe tu pregunta…",

@@ -52,7 +52,7 @@ PESO_CAMPO = {
 UMBRAL_TOP1 = 0.80       # >= 80 % del mejor (los empates con el mejor siempre entran)
 UMBRAL_TOP2 = 0.30       # >= 30 % del mejor; por debajo, Top 3
 MAX_CHAT = 5             # Top 1 que se muestran en la respuesta
-MAX_TOGGLE = 10          # estrategias en el desplegable «Otras estrategias»
+MAX_TOP2 = 10            # tope de estrategias en Top 2 (lo que sobra pasa a Top 3)
 
 # Palabras demasiado comunes para que una coincidencia signifique algo.
 VACIAS = set("""de la el los las un una unos unas y o u a en con por para del al se su sus
@@ -362,7 +362,6 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
 
     No interpreta la intención ni redacta nada. Devuelve:
       resultados    las Top 1 (hasta MAX_CHAT), con evidencia: lo único que ve el modelo.
-      otras         las siguientes (hasta MAX_TOGGLE), con evidencia: sólo interfaz.
       niveles       códigos de TODAS las que coincidieron, por nivel: sólo árbol.
       coincidencias qué término coincidió en qué campo, por código: sólo árbol.
       avisos_reglas notas de las reglas que actuaron: sólo interfaz.
@@ -438,9 +437,8 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
     top1 = [r for r in resultados if r["nivel"] == "top1"]
     candidatas = [r for r in resultados if r["nivel"] == "top2"]
 
-    en_chat = top1[:MAX_CHAT]
-    sobran = top1[MAX_CHAT:]              # igual de cercanas, pero no caben en el chat
-    top2 = _cortar_sin_partir_empates(candidatas, MAX_TOGGLE - len(sobran))
+    en_chat = top1[:MAX_CHAT]             # si hay más Top 1 empatadas, el resto sólo va al árbol
+    top2 = _cortar_sin_partir_empates(candidatas, MAX_TOP2)
     en_top2 = {r["codigo"] for r in top2}
     for r in candidatas:
         if r["codigo"] not in en_top2:
@@ -466,7 +464,6 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
         "n_resultados": len(resultados),
         "n_top1": len(top1),
         "resultados": en_chat,
-        "otras": (sobran + top2)[:MAX_TOGGLE],
         "niveles": {"top1": codigos("top1"), "top2": codigos("top2"), "top3": codigos("top3")},
         "coincidencias": {r["codigo"]: [{"termino": ev["termino"], "campo": ev["campo"]}
                                         for ev in r["coincidencias"]] for r in resultados},
