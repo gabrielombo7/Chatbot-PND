@@ -100,6 +100,11 @@ la Top 1, que se abre sola con sus palabras clave resaltadas, y los botones
 Dos pequeños «i» explican en pantalla qué es el chat y qué significan Top 1, 2 y 3.
 Si la sugerencia está mal, se puede ver exactamente por qué.
 
+El buscador propio del árbol resalta lo que escribes y tiene el botón «Exacta» (sólo
+palabras completas; también funciona escribiendo entre comillas). La conversación del
+chat tiene su propio scroll, para que nunca alargue la página y deje el árbol fuera de
+vista.
+
 ## Qué hace el modelo y qué no
 
 El modelo **no tiene el PND en memoria**: el *system prompt* sólo lleva los

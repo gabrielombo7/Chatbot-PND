@@ -188,7 +188,7 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 | Archivo | Qué contiene |
 |---|---|
 | `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, el expander "Notas" (sinónimos, reglas, totales y cómo se ordena, generado desde las constantes de `buscador.py`) y los tooltips de ayuda (CSS, sin JavaScript). |
-| `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.components.v1.html`). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
+| `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.iframe`, o con `st.components.v1.html` en versiones antiguas de Streamlit). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad. 9 columnas: número/nombre de eje, número/nombre de tema, número/nombre de estrategia, descripción, palabras clave, fuente. Se lee directo; si cambia la estructura, se reemplaza este archivo y se reinicia la app — no hay nada codificado a mano. |
