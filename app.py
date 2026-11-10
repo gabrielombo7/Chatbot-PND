@@ -20,7 +20,11 @@ import os
 
 import anthropic
 import streamlit as st
-import streamlit.components.v1 as components
+
+try:   # Streamlit está retirando components.v1; ver incrustar()
+    import streamlit.components.v1 as components
+except Exception:
+    components = None
 
 import arbol
 import buscador as B
@@ -31,6 +35,7 @@ st.set_page_config(page_title="Orientador del PND 2026-2030",
                    initial_sidebar_state="collapsed")
 
 ALTO_ARBOL = 760
+ALTO_CHAT = 560      # alto de la conversación; si es más larga, tiene su propio scroll
 
 # ---------------------------------------------------------------------------
 # Estilos de la página (el árbol trae los suyos aparte)
@@ -166,16 +171,23 @@ TIP_CHAT = (
     "palabras sobre el archivo de estructura. Si la búsqueda no encuentra nada, lo dice.</span>")
 
 
+def incrustar(html, alto):
+    """st.iframe reemplaza a components.html (que Streamlit retira); con versiones
+    antiguas, que no lo tienen, se usa la anterior."""
+    if hasattr(st, "iframe"):
+        st.iframe(html, height=alto)
+    else:
+        components.html(html, height=alto, scrolling=True)
+
+
 def pintar_arbol():
     st.markdown('<div class="rotulo-col">Árbol del Plan' + tip(TIP_ARBOL) + '</div>'
                 '<p class="ayuda-col">Haz clic en una estrategia para ver sus '
                 'palabras clave y, si quieres, su descripción. El buscador de esta sección es '
                 'literal: encuentra la palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
-    components.html(
-        arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
-                     st.session_state.coincidencias),
-        height=ALTO_ARBOL, scrolling=True)
+    incrustar(arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
+                           st.session_state.coincidencias), ALTO_ARBOL)
 
 
 def pintar_terminos(busquedas):
@@ -231,29 +243,8 @@ def pintar_notas(busquedas):
             st.caption(n)
 
 
-def pintar_chat():
-    st.markdown('<div class="rotulo-col">Dónde ubico mi idea' + tip(TIP_CHAT, "der") + '</div>',
-                unsafe_allow_html=True)
-
-    cli = cliente()
-    if cli is None:
-        st.markdown('<div class="aviso">Falta la llave del API. Ponla en '
-                    '<code>.streamlit/secrets.toml</code> como '
-                    '<code>ANTHROPIC_API_KEY</code> y recarga. Mientras tanto, el árbol '
-                    'y su buscador funcionan sin llave.</div>', unsafe_allow_html=True)
-        return
-
-    if not st.session_state.historial:
-        st.caption("Para probar:")
-        for ejemplo in ["Quiero construir un colegio, ¿a qué estrategia me remito?",
-                        "¿Dónde van las becas de estudio?",
-                        "Acueducto y alcantarillado en un municipio pequeño",
-                        "Un programa de empleo para jóvenes rurales"]:
-            if st.button(ejemplo, key=f"ej_{hash(ejemplo)}", use_container_width=True):
-                st.session_state.pendiente = ejemplo
-                st.rerun()
-
-    for i, msg in enumerate(st.session_state.historial):
+def pintar_historial():
+    for msg in st.session_state.historial:
         if not isinstance(msg.get("content"), str):
             continue
         with st.chat_message(msg["role"], avatar="🧭" if msg["role"] == "assistant" else "📝"):
@@ -267,24 +258,8 @@ def pintar_chat():
             if es_resp:
                 pintar_notas(busquedas)
 
-    with st.form("preguntar", clear_on_submit=True):
-        texto = st.text_input("Tu pregunta", placeholder="Escribe tu pregunta…",
-                              label_visibility="collapsed")
-        c1, c2 = st.columns([1, 1])
-        enviar = c1.form_submit_button("Buscar", use_container_width=True, type="primary")
-        limpiar = c2.form_submit_button("Limpiar", use_container_width=True)
 
-    if limpiar:
-        st.session_state.historial = []
-        st.session_state.niveles = {}
-        st.session_state.coincidencias = {}
-        st.session_state.terminos = []
-        st.rerun()
-
-    pregunta = texto if (enviar and texto.strip()) else st.session_state.pop("pendiente", None)
-    if not pregunta:
-        return
-
+def procesar(cli, pregunta):
     st.session_state.historial.append({"role": "user", "content": pregunta})
     with st.chat_message("user", avatar="📝"):
         st.markdown(pregunta)
@@ -306,6 +281,60 @@ def pintar_chat():
     st.session_state.niveles, st.session_state.coincidencias = motor.marcas_arbol(llamadas)
     st.session_state.terminos = terms
     st.rerun()
+
+
+def pintar_chat():
+    st.markdown('<div class="rotulo-col">Dónde ubico mi idea' + tip(TIP_CHAT, "der") + '</div>'
+                '<p class="ayuda-col">Escribe tu idea, proyecto o programa con tus propias '
+                'palabras y te muestro en qué estrategias del Plan podría ubicarse.</p>',
+                unsafe_allow_html=True)
+
+    cli = cliente()
+    if cli is None:
+        st.markdown('<div class="aviso">Falta la llave del API. Ponla en '
+                    '<code>.streamlit/secrets.toml</code> como '
+                    '<code>ANTHROPIC_API_KEY</code> y recarga. Mientras tanto, el árbol '
+                    'y su buscador funcionan sin llave.</div>', unsafe_allow_html=True)
+        return
+
+    # La conversación va en un recuadro con scroll propio, para que el chat nunca
+    # alargue la página y deje el árbol fuera de vista. Se crea aquí, arriba del
+    # formulario, y se llena más abajo cuando ya se sabe si hay pregunta.
+    zona = st.container()
+
+    if not st.session_state.historial and not st.session_state.get("pendiente"):
+        for ejemplo in ["Quiero construir un colegio, ¿a qué estrategia me remito?",
+                        "¿Dónde van las becas de estudio?",
+                        "Acueducto y alcantarillado en un municipio pequeño",
+                        "Un programa de empleo para jóvenes rurales"]:
+            if st.button(ejemplo, key=f"ej_{hash(ejemplo)}", use_container_width=True):
+                st.session_state.pendiente = ejemplo
+                st.rerun()
+
+    with st.form("preguntar", clear_on_submit=True):
+        texto = st.text_input("Tu pregunta", placeholder="Escribe tu pregunta…",
+                              label_visibility="collapsed")
+        c1, c2 = st.columns([1, 1])
+        enviar = c1.form_submit_button("Buscar", use_container_width=True, type="primary")
+        limpiar = c2.form_submit_button("Limpiar", use_container_width=True)
+
+    if limpiar:
+        st.session_state.historial = []
+        st.session_state.niveles = {}
+        st.session_state.coincidencias = {}
+        st.session_state.terminos = []
+        st.rerun()
+
+    pregunta = texto if (enviar and texto.strip()) else st.session_state.pop("pendiente", None)
+    if not (st.session_state.historial or pregunta):
+        return
+
+    with zona:
+        caja = st.container(height=ALTO_CHAT, border=False)
+    with caja:
+        pintar_historial()
+        if pregunta:
+            procesar(cli, pregunta)
 
 
 if st.session_state.chat_abierto:

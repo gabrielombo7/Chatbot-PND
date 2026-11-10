@@ -189,6 +189,8 @@ PLANTILLA = """<!DOCTYPE html>
     <input type="search" id="q" placeholder="Buscar en el árbol: agua, vivienda, docente…"
       autocomplete="off" aria-label="Buscar en el árbol">
   </div>
+  <button class="ctrl" id="exacta" type="button" aria-pressed="false"
+    title="Coincidencia exacta: sólo palabras completas («deporte» no encuentra «deportivo»). También puedes escribir la búsqueda entre comillas.">Exacta</button>
   <div class="acciones">
     <button class="ctrl" id="abrir">Desplegar todo</button>
     <button class="ctrl" id="cerrar">Plegar todo</button>
@@ -217,9 +219,12 @@ const esc = s => String(s==null?"":s).replace(/[&<>"]/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* Resalta en el texto los términos que vienen del chat. */
-function resaltar(texto, terminos){
+const esLetra = c => c !== undefined && /[a-z0-9]/.test(c);
+
+/* `terminos` se resaltan donde aparezcan; `exactos`, sólo como palabra completa. */
+function resaltar(texto, terminos, exactos = []){
   let html = esc(texto);
-  if(!terminos.length) return html;
+  if(!terminos.length && !exactos.length) return html;
   const plano = sinTildes(html);
   const tramos = [];
   for(const t of terminos){
@@ -227,6 +232,15 @@ function resaltar(texto, terminos){
     if(tn.length < 3) continue;
     let i = plano.indexOf(tn);
     while(i !== -1){ tramos.push([i, i+tn.length]); i = plano.indexOf(tn, i+tn.length); }
+  }
+  for(const t of exactos){
+    const tn = sinTildes(t);
+    if(tn.length < 3) continue;
+    let i = plano.indexOf(tn);
+    while(i !== -1){
+      if(!esLetra(plano[i-1]) && !esLetra(plano[i+tn.length])) tramos.push([i, i+tn.length]);
+      i = plano.indexOf(tn, i+1);
+    }
   }
   if(!tramos.length) return html;
   tramos.sort((a,b)=>a[0]-b[0]);
@@ -342,7 +356,25 @@ const nada = document.getElementById("nada");
 const FILTRO = new Set();   /* niveles elegidos con los botones; vacío = todo el árbol */
 const pasaNivel = e => FILTRO.size === 0 || [...FILTRO].some(n => e.classList.contains(n));
 
-let ultimaBusqueda = "";
+let ultimaBusqueda = "|false";
+let EXACTA = false;
+
+/* Lo escrito en el buscador: entre comillas o con «Exacta» activado, sólo palabras completas. */
+function consulta(){
+  let q = caja.value.trim(), exacto = EXACTA;
+  const m = q.match(/^["“](.+)["”]$/);
+  if(m){ q = m[1].trim(); exacto = true; }
+  return {t: sinTildes(q), exacto, texto: q};
+}
+
+function contiene(texto, t, exacto){
+  let i = texto.indexOf(t);
+  while(i !== -1){
+    if(!exacto || (!esLetra(texto[i-1]) && !esLetra(texto[i+t.length]))) return true;
+    i = texto.indexOf(t, i+1);
+  }
+  return false;
+}
 const AUTO = [];   /* fichas/descripciones que abrió la búsqueda, para cerrarlas al cambiarla */
 
 function cerrarAuto(){
@@ -360,7 +392,7 @@ function cerrarAuto(){
 
 /* Con pocas coincidencias se abre la ficha (palabras clave resaltadas) y, si la palabra
    está en la descripción, también la descripción. */
-function abrirAuto(t){
+function abrirAuto(t, exacto){
   document.querySelectorAll(".est:not(.oculto)").forEach(e => {
     const f = document.getElementById("f-" + e.dataset.cod);
     if(!f.classList.contains("abierta")){
@@ -368,7 +400,7 @@ function abrirAuto(t){
     }
     const d = f.querySelector(".desc"), b = f.querySelector(".vertodo");
     if(d && b && !d.classList.contains("abierta")
-       && sinTildes(d.querySelector("p").dataset.raw || "").includes(t)){
+       && contiene(sinTildes(d.querySelector("p").dataset.raw || ""), t, exacto)){
       d.classList.add("abierta"); b.setAttribute("aria-expanded","true");
       b.querySelector(".vertodo-txt").textContent = "Ocultar descripción" + (b.dataset.extra || "");
       AUTO.push(["d", e]);
@@ -377,12 +409,12 @@ function abrirAuto(t){
 }
 
 function filtrar(){
-  const t = sinTildes(caja.value.trim());
+  const q = consulta(), t = q.t, exacto = q.exacto;
   const ests = document.querySelectorAll(".est");
   let visibles = 0;
 
   ests.forEach(e => {
-    const pasa = (!t || e.dataset.buscar.includes(t)) && pasaNivel(e);
+    const pasa = (!t || contiene(e.dataset.buscar, t, exacto)) && pasaNivel(e);
     e.classList.toggle("oculto", !pasa);
     if(!pasa) document.getElementById("f-" + e.dataset.cod).classList.remove("abierta");
     document.getElementById("f-" + e.dataset.cod).classList.toggle("oculto", !pasa);
@@ -391,15 +423,18 @@ function filtrar(){
 
   /* Lo escrito en el buscador se resalta en nombres, temas, ejes, palabras clave y
      descripciones; al borrarlo quedan sólo las marcas del chat. */
-  if(t !== ultimaBusqueda){
-    ultimaBusqueda = t;
+  const clave = t + "|" + exacto;
+  if(clave !== ultimaBusqueda){
+    ultimaBusqueda = clave;
     cerrarAuto();
     document.querySelectorAll("[data-raw]").forEach(el => {
       const base = el.classList.contains("chip") ? [] : TERMINOS;
-      el.innerHTML = resaltar(el.dataset.raw, t ? base.concat([t]) : base);
+      el.innerHTML = !t ? resaltar(el.dataset.raw, base)
+        : exacto ? resaltar(el.dataset.raw, base, [t])
+        : resaltar(el.dataset.raw, base.concat([t]));
     });
   }
-  if(t && visibles <= 8) abrirAuto(t);
+  if(t && visibles <= 8) abrirAuto(t, exacto);
 
   document.querySelectorAll("details.tema").forEach(d => {
     const hay = d.querySelectorAll(".est:not(.oculto)").length;
@@ -415,12 +450,12 @@ function filtrar(){
   if(t || FILTRO.size){
     const cuales = [...FILTRO].sort().map(n => ROTULO[n]).join(" + ");
     conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length + " estrategias"
-      + (t ? " contienen «" + esc(caja.value.trim()) + "»" : "")
+      + (t ? " contienen «" + esc(q.texto) + "»" + (exacto ? " como palabra exacta" : "") : "")
       + (t && FILTRO.size ? " en " : "") + (!t ? " en " : "") + cuales;
     nada.classList.toggle("oculto", visibles > 0);
     if(visibles === 0){
       nada.innerHTML = t
-        ? "Ninguna estrategia contiene <b>«" + esc(caja.value.trim())
+        ? "Ninguna estrategia contiene <b>«" + esc(q.texto)
           + "»</b>" + (FILTRO.size ? " en " + cuales : "") + ". Esta búsqueda es literal: "
           + "encuentra la palabra sólo si está escrita igual en el árbol. Para una búsqueda "
           + "que traduzca al vocabulario del documento, usa el chat."
@@ -432,6 +467,11 @@ function filtrar(){
     nada.classList.add("oculto");
   }
 }
+document.getElementById("exacta").addEventListener("click", ev => {
+  EXACTA = !EXACTA;
+  ev.currentTarget.setAttribute("aria-pressed", String(EXACTA));
+  filtrar();
+});
 let temporizador;
 caja.addEventListener("input", () => {
   clearTimeout(temporizador);
