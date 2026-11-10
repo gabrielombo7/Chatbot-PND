@@ -49,24 +49,40 @@ uso corriente al vocabulario del documento. Esta capa existe porque el documento
 no dice *colegio*, dice *infraestructura educativa*; no dice *beca*, dice
 *financiación estudiantil*.
 
-El orden de los resultados también es una regla declarada, no un puntaje:
+El orden de los resultados sale de un score que se explica en una línea. Se busca
+sólo en tres campos —**palabras clave, nombre de la estrategia y tema**; la descripción
+no cuenta— y, por cada término que coincide, se suma:
 
-1. cuántos de los términos buscados aparecen en la estrategia;
-2. en qué campo aparecen: las palabras clave y el nombre de la estrategia pesan
-   más que el tema, y el tema más que la descripción;
-3. los términos que llegan a la búsqueda (los de la persona y los que el modelo
-   traduce) pesan el doble que los que agregó el diccionario.
+> peso del campo × multiplicador de origen × especificidad del término
 
-Ese orden lo calcula `buscador.py`, no el modelo: el modelo sólo elige los
-términos de búsqueda.
+- **Peso del campo:** palabras clave 4, nombre 4, tema 3.
+- **Multiplicador de origen:** ×2 para los términos que llegan a la búsqueda (los de
+  la persona y los que el modelo traduce); ×1 para los que agrega el diccionario.
+- **Especificidad:** un término que aparece en muchas estrategias dice poco. Vale
+  ln(total ÷ estrategias donde aparece): un término que está en 1 de las 123
+  estrategias vale 4,8; uno que está en 26 vale 1,6.
 
-Cada resultado viene con la evidencia —qué término coincidió, en qué campo y por
-cuál capa— y la interfaz muestra la mejor en la respuesta y las siguientes en «Otras estrategias». Si la
-sugerencia está mal, se puede ver exactamente por qué.
+Ese score lo calcula `buscador.py`, no el modelo: el modelo sólo elige los términos
+de búsqueda.
 
-En el árbol, todas las estrategias que coincidieron se marcan en amarillo con una
-insignia: **Top 1** (la mejor; hacia ella baja el árbol), **Top 5** (de la 2.ª a
-la 5.ª) y **Relacionada** (el resto).
+Con el score se arman tres niveles, siempre relativos al mejor resultado:
+
+| Nivel | Regla | Dónde se ve |
+|---|---|---|
+| **Más cercana** | ≥ 60 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
+| **Otra** | ≥ 15 % del mejor, hasta 10 | desplegable «Otras estrategias» y árbol |
+| **Relacionada** | el resto | sólo el árbol |
+
+Dos estrategias con el mismo score reciben el mismo trato: nunca se elige entre ellas.
+Los umbrales y los topes están al comienzo de `buscador.py` (`UMBRAL_CERCANAS`,
+`UMBRAL_OTRAS`, `MAX_CHAT`, `MAX_TOGGLE`).
+
+Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
+interfaz la muestra: la respuesta trae las más cercanas y el desplegable «Otras
+estrategias» las siguientes. En el árbol, todas las que coincidieron se marcan en
+amarillo con su insignia; las más cercanas se abren solas y la ficha dice «Coincide
+con» qué términos, en qué campo. Si la sugerencia está mal, se puede ver exactamente
+por qué.
 
 ## Qué hace el modelo y qué no
 

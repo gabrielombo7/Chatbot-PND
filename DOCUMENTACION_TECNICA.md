@@ -138,30 +138,33 @@ Todo es comparación de texto, en tres capas, cada una explicable en una frase:
   editable a mano, sin lógica difusa: una palabra de la izquierda, una lista
   de términos de la derecha separados por `;`.
 
-El **orden de los resultados** también es una regla declarada, no un puntaje
-estadístico (función `buscar_estrategias`):
-1. cuántos términos distintos coincidieron;
-2. en qué campo coincidieron — palabras clave y nombre de la estrategia pesan
-   más que el tema, y el tema más que la descripción (diccionario
-   `PESO_CAMPO`);
-3. los términos que llegan a la herramienta (los de la persona y los que el
-   modelo traduce al vocabulario del documento) pesan el doble que los que
-   agrega el diccionario de sinónimos (ver `factor` en `buscar_estrategias`).
+El **orden de los resultados** sale de un score declarado, no aprendido (función
+`buscar_estrategias`). Sólo se busca en palabras clave, nombre de la estrategia y
+tema; la descripción no cuenta. Por cada término que coincide se suma:
+peso del campo (`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen
+(×2 los términos que llegan a la herramienta, ×1 los que agrega el diccionario de
+sinónimos) × especificidad (ln(total ÷ estrategias donde aparece el término): un
+término frecuente como «infraestructura», en 26 de 123 estrategias, vale poco).
 
 El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a partir
 de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
 rankings distintos para la misma pregunta.
 
-`buscar_estrategias` devuelve las 5 mejores con su evidencia (`resultados`, lo
-único que ve el modelo) y los códigos de **todas** las que coincidieron en ese
-mismo orden (`codigos_ordenados`, sólo para el árbol). El árbol los marca todos
-en amarillo con una insignia: **Top 1** (la mejor), **Top 5** (de la 2.ª a la
-5.ª) y **Relacionada** (el resto), y baja al Top 1. Ojo: «Top 5» significa
-«entre las cinco primeras», no «buena coincidencia»; a veces la 2.ª ya es débil.
+Los **niveles** son umbrales sobre el score, relativos al mejor: *más cercanas*
+(≥ 60 %, incluidos los empates con el mejor; hasta 5 en el chat), *otras* (≥ 15 %,
+hasta 10, en el desplegable «Otras estrategias») y *relacionadas* (el resto, sólo en
+el árbol). Mismo score = mismo nivel; cuando un tope partiría un empate, el grupo
+entero baja de nivel. Las constantes están al inicio de `buscador.py`.
+
+`buscar_estrategias` devuelve `resultados` (las más cercanas con evidencia: lo
+único que ve el modelo) y, sólo para la interfaz, `otras`, `niveles` y
+`coincidencias` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El
+árbol marca todas en amarillo con su insignia, abre la ficha de las más cercanas y
+muestra «Coincide con» qué términos, en qué campo.
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
-capa), y eso es lo que la interfaz muestra en "Otras estrategias" y lo que el
-LLM usa para redactar, sin tener que inventar justificaciones.
+capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin
+tener que inventar justificaciones.
 
 **Por qué importa esta separación:** todo lo que decide *qué estrategias
 aparecen* es determinista, está en `buscador.py`, se puede probar sin llamar a

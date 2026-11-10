@@ -134,8 +134,8 @@ PLANTILLA = """<!DOCTYPE html>
   .est.senalada:hover{background:#FBEFC5}
   .insignia{font-size:11px;font-weight:600;border-radius:4px;padding:1.5px 7px;
     white-space:nowrap;align-self:center;letter-spacing:.01em}
-  .insignia.top1{background:#166534;color:#fff}
-  .insignia.top5{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
+  .insignia.cerca{background:#166534;color:#fff}
+  .insignia.otra{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
   .insignia.rel{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
 
   /* ---------- ficha ---------- */
@@ -165,6 +165,7 @@ PLANTILLA = """<!DOCTYPE html>
   .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
   .chip{font-size:12.5px;background:#F2F4F7;color:#333A45;border-radius:5px;
     padding:3px 9px;line-height:1.45}
+  .chip .donde{font-weight:400;opacity:.72}
   .chip.coincide{background:var(--marca);color:#6B4F00;
     box-shadow:inset 0 0 0 1px var(--marca-borde)}
   mark{background:var(--marca);color:inherit;padding:0 1px;border-radius:2px;
@@ -196,13 +197,15 @@ PLANTILLA = """<!DOCTYPE html>
 
 <script>
 const EJES = __DATOS__;
-const ORDEN = __SENALADAS__;   /* códigos del chat, de mejor a peor */
+const NIVELES = __NIVELES__;   /* {cercanas:[...], otras:[...], relacionadas:[...]} */
+const COINC = __COINCIDENCIAS__;   /* {código: [{termino, campo}]} */
 const TERMINOS = __TERMINOS__;
 
-/* Top 1 = la mejor; Top 5 = de la 2.ª a la 5.ª; Relacionada = el resto. */
 const NIVEL = {};
-ORDEN.forEach((c, i) => { NIVEL[c] = i === 0 ? "top1" : (i < 5 ? "top5" : "rel"); });
-const ROTULO = {top1: "Top 1", top5: "Top 5", rel: "Relacionada"};
+const CLASE = {cercanas: "cerca", otras: "otra", relacionadas: "rel"};
+for(const k in CLASE) (NIVELES[k] || []).forEach(c => { NIVEL[c] = CLASE[k]; });
+const ROTULO = {cerca: "Más cercana", otra: "Otra", rel: "Relacionada"};
+const HAY_NIVELES = Object.keys(NIVEL).length > 0;
 
 const sinTildes = s => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,
@@ -252,8 +255,14 @@ function ficha(e, color){
         return '<span class="chip' + (coincide?' coincide':'') + '">' + esc(k) + '</span>';
       }).join("") + '</div>'
     : "";
+  const co = COINC[e.cod] || [];
+  const coincide = co.length
+    ? '<p class="rotulo">Coincide con</p><div class="chips">' + co.map(c =>
+        '<span class="chip coincide">' + esc(c.termino) + ' <span class="donde">· '
+        + esc(c.campo) + '</span></span>').join("") + '</div>'
+    : "";
   return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">'
-    + chips + desc + '</div>';
+    + coincide + chips + desc + '</div>';
 }
 
 function dibujar(){
@@ -374,14 +383,15 @@ document.getElementById("cerrar").onclick = () => {
 dibujar();
 filtrar();
 
-/* Si el chat señaló estrategias, se abren sus ramas y se baja al Top 1. */
-if(ORDEN.length){
+/* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las más
+   cercanas (todas por igual) y se baja a la primera en el orden del árbol. */
+if(HAY_NIVELES){
   document.querySelectorAll(".est.senalada").forEach(e => {
     let p = e.parentElement;
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
-  const primera = document.querySelector(".est.top1");
-  if(primera) alternar(primera);   /* abre su ficha: palabras clave a la vista */
+  document.querySelectorAll(".est.cerca").forEach(e => alternar(e));
+  const primera = document.querySelector(".est.cerca");
   if(primera) setTimeout(() => primera.scrollIntoView({block:"center",
     behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth"}), 160);
 }
@@ -389,15 +399,17 @@ if(ORDEN.length){
 """
 
 
-def render(df, senaladas=None, terminos=None) -> str:
+def render(df, niveles=None, terminos=None, coincidencias=None) -> str:
     """Devuelve el HTML del árbol.
 
-    senaladas: códigos a resaltar (los del chat), de mejor a peor: el primero
-               es el Top 1, del 2.º al 5.º el Top 5 y el resto «Relacionada».
-    terminos:  términos a resaltar dentro del texto.
+    niveles:       {'cercanas': [...], 'otras': [...], 'relacionadas': [...]} con los
+                   códigos que encontró el chat; se marcan en amarillo con su insignia.
+    terminos:      términos a resaltar dentro del texto.
+    coincidencias: {código: [{'termino', 'campo'}]}, para la línea «Coincide con».
     """
     datos = construir_datos(df)
     return (PLANTILLA
             .replace("__DATOS__", json.dumps(datos, ensure_ascii=False))
-            .replace("__SENALADAS__", json.dumps(list(senaladas or []), ensure_ascii=False))
+            .replace("__NIVELES__", json.dumps(niveles or {}, ensure_ascii=False))
+            .replace("__COINCIDENCIAS__", json.dumps(coincidencias or {}, ensure_ascii=False))
             .replace("__TERMINOS__", json.dumps(sorted(terminos or []), ensure_ascii=False)))

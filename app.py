@@ -101,7 +101,8 @@ except ValueError as e:
 
 st.session_state.setdefault("chat_abierto", True)
 st.session_state.setdefault("historial", [])
-st.session_state.setdefault("senaladas", [])
+st.session_state.setdefault("niveles", {})
+st.session_state.setdefault("coincidencias", {})
 st.session_state.setdefault("terminos", [])
 
 # ---------------------------------------------------------------------------
@@ -135,7 +136,8 @@ def pintar_arbol():
                 'literal: encuentra la palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
     components.html(
-        arbol.render(DF, st.session_state.senaladas, st.session_state.terminos),
+        arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
+                     st.session_state.coincidencias),
         height=ALTO_ARBOL, scrolling=True)
 
 
@@ -156,14 +158,14 @@ def pintar_terminos(busquedas):
 
 
 def pintar_otras(busquedas):
-    """Las mejores después de la primera (que ya está en la respuesta)."""
+    """Las que siguen a las más cercanas (que ya están en la respuesta)."""
+    en_respuesta = {r["codigo"] for b in busquedas for r in b.get("resultados", [])}
     vistas, otras = set(), []
     for b in busquedas:
-        for r in b.get("resultados", []):
-            if r["codigo"] not in vistas:
+        for r in b.get("otras", []):
+            if r["codigo"] not in vistas and r["codigo"] not in en_respuesta:
                 vistas.add(r["codigo"])
                 otras.append(r)
-    otras = otras[1:]
     if not otras:
         return
     with st.expander("Otras estrategias"):
@@ -171,10 +173,11 @@ def pintar_otras(busquedas):
             detalle = "; ".join(f"«{c['termino']}» en {c['campo']} ({c['tipo']})"
                                 for c in r["coincidencias"])
             st.markdown(f"**{r['codigo']}** · {r['estrategia']}  \n"
-                        f"<span style='color:#8A929E;font-size:12.5px'>{detalle}</span>",
+                        f"<span style='color:#8A929E;font-size:12.5px'>"
+                        f"{r['pct_del_mejor']} % de la mejor · {detalle}</span>",
                         unsafe_allow_html=True)
         n_total = busquedas[0].get("n_resultados", 0)
-        if n_total > busquedas[0].get("n_mostrados", 0):
+        if n_total > len(en_respuesta) + len(otras):
             st.caption(f"En total {n_total} estrategias contienen alguno de esos términos; "
                        "las que no están aquí aparecen como «Relacionada» en el árbol.")
 
@@ -231,7 +234,8 @@ def pintar_chat():
 
     if limpiar:
         st.session_state.historial = []
-        st.session_state.senaladas = []
+        st.session_state.niveles = {}
+        st.session_state.coincidencias = {}
         st.session_state.terminos = []
         st.rerun()
 
@@ -245,7 +249,7 @@ def pintar_chat():
     with st.chat_message("assistant", avatar="🧭"):
         with st.spinner("Buscando en la estructura…"):
             try:
-                txt, llamadas, codigos, terms = motor.responder(cli, st.session_state.historial)
+                txt, llamadas, terms = motor.responder(cli, st.session_state.historial)
             except anthropic.APIStatusError as e:
                 st.error(f"El API respondió con un error ({e.status_code}). "
                          "Revisa la llave y el saldo de la cuenta.")
@@ -257,7 +261,7 @@ def pintar_chat():
                 return
     st.session_state.historial.append(
         {"role": "assistant", "content": txt, "llamadas": llamadas})
-    st.session_state.senaladas = codigos
+    st.session_state.niveles, st.session_state.coincidencias = motor.marcas_arbol(llamadas)
     st.session_state.terminos = terms
     st.rerun()
 
