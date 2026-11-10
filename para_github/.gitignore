@@ -1,0 +1,6 @@
+# La llave del API nunca va al repositorio. En Streamlit Cloud se configura
+# en Settings -> Secrets de la app, no aquí.
+.streamlit/secrets.toml
+__pycache__/
+*.pyc
+.DS_Store
