@@ -64,117 +64,130 @@ PLANTILLA = """<!DOCTYPE html>
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--papel);color:var(--tinta);
-    font-family:var(--sans);font-size:15px;line-height:1.5;
+    font-family:var(--sans);font-size:17px;line-height:1.5;
     -webkit-font-smoothing:antialiased}
-  #raiz{padding:4px 2px 48px}
+  #raiz{padding:4px 2px 56px}
 
   /* ---------- barra de búsqueda ---------- */
   .barra{position:sticky;top:0;z-index:20;background:var(--papel);
-    padding:10px 2px 12px;border-bottom:1px solid var(--regla);
-    display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .campo{position:relative;flex:1 1 260px;min-width:200px}
-  .campo svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);
+    padding:12px 2px 14px;border-bottom:1px solid var(--regla);
+    display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .campo{position:relative;flex:1 1 280px;min-width:200px}
+  .campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);
     color:var(--tenue);pointer-events:none}
-  input[type=search]{width:100%;font:inherit;color:var(--tinta);
-    padding:9px 12px 9px 34px;border:1px solid var(--regla);border-radius:7px;
+  input[type=search]{width:100%;font:inherit;font-size:16px;color:var(--tinta);
+    padding:11px 14px 11px 41px;border:1px solid var(--regla);border-radius:9px;
     background:#fff;outline:none;transition:border-color .13s,box-shadow .13s}
   input[type=search]:focus{border-color:var(--realce);
     box-shadow:0 0 0 3px rgba(31,79,216,.13)}
   input[type=search]::-webkit-search-cancel-button{cursor:pointer}
-  .acciones{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-  .niveles{display:flex;gap:6px;align-items:center;margin-left:6px;padding-left:12px;
-    border-left:1px solid var(--regla)}
-  .niveles .rot{font-size:12.5px;color:var(--tenue)}
-  button.ctrl{font:inherit;font-size:13.5px;color:var(--suave);background:#fff;
-    border:1px solid var(--regla);border-radius:7px;padding:8px 13px;cursor:pointer;
+  .acciones{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .niveles{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:6px;
+    padding-left:14px;border-left:1px solid var(--regla)}
+  .niveles .rot{font-size:14px;color:var(--tenue)}
+  button.ctrl{font:inherit;font-size:15px;color:var(--suave);background:#fff;
+    border:1px solid var(--regla);border-radius:9px;padding:10px 15px;cursor:pointer;
     transition:background .13s,color .13s,border-color .13s}
   button.ctrl[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
   button.ctrl .n{opacity:.7;font-variant-numeric:tabular-nums}
   button.ctrl:hover{background:#F2F4F7;color:var(--tinta)}
-  button.ctrl:focus-visible,summary:focus-visible,.est:focus-visible{
+  button.ctrl[aria-pressed=true]:hover{background:var(--tinta);color:#fff}
+  button.ctrl:focus-visible,summary:focus-visible,.est:focus-visible,button.info:focus-visible{
     outline:2px solid var(--realce);outline-offset:2px}
-  .conteo{font-size:13px;color:var(--tenue);font-variant-numeric:tabular-nums;
+  .conteo{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
     flex-basis:100%}
   .conteo b{color:var(--tinta);font-weight:500}
 
   /* ---------- eje ---------- */
-  details.eje{border-left:3px solid var(--c);margin:18px 0 0;padding-left:15px}
-  details.eje>summary{list-style:none;cursor:pointer;display:flex;gap:11px;
-    align-items:baseline;padding:5px 0}
+  details.eje{border-left:3px solid var(--c);margin:26px 0 0;padding-left:18px}
+  details.eje>summary{list-style:none;cursor:pointer;display:flex;gap:13px;
+    align-items:baseline;padding:6px 0}
   details.eje>summary::-webkit-details-marker{display:none}
-  .eje-num{font-family:var(--sans);font-weight:600;font-size:12.5px;color:var(--c);
-    font-variant-numeric:tabular-nums;min-width:14px;letter-spacing:.02em}
-  .eje-nom{font-family:var(--serif);font-size:20.5px;font-weight:600;
+  .eje-num{font-family:var(--sans);font-weight:600;font-size:15px;color:var(--c);
+    font-variant-numeric:tabular-nums;min-width:16px;letter-spacing:.02em}
+  .eje-nom{font-family:var(--serif);font-size:26px;font-weight:600;
     line-height:1.26;letter-spacing:-.008em;flex:1}
-  .eje-cnt{font-size:12.5px;color:var(--tenue);font-variant-numeric:tabular-nums;
+  .eje-cnt{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
     white-space:nowrap}
   details.eje>summary:hover .eje-nom{color:var(--c)}
   .flecha{color:var(--tenue);transition:transform .16s ease;flex-shrink:0;
-    margin-top:5px}
+    margin-top:7px}
   details[open]>summary .flecha{transform:rotate(90deg)}
 
   /* ---------- tema ---------- */
   details.tema{margin:2px 0 2px 2px}
-  details.tema>summary{list-style:none;cursor:pointer;display:flex;gap:9px;
-    align-items:baseline;padding:6px 0;border-top:1px solid var(--regla)}
+  details.tema>summary{list-style:none;cursor:pointer;display:flex;gap:11px;
+    align-items:baseline;padding:10px 0;border-top:1px solid var(--regla)}
   details.tema>summary::-webkit-details-marker{display:none}
-  .tema-num{font-weight:600;font-size:13px;color:var(--c);
-    font-variant-numeric:tabular-nums;min-width:30px}
-  .tema-nom{font-size:14.5px;font-weight:500;flex:1;line-height:1.4}
-  .tema-cnt{font-size:12px;color:var(--tenue);font-variant-numeric:tabular-nums}
+  .tema-num{font-weight:600;font-size:15px;color:var(--c);
+    font-variant-numeric:tabular-nums;min-width:34px}
+  .tema-nom{font-size:18px;font-weight:500;flex:1;line-height:1.4}
+  .tema-cnt{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums}
   details.tema>summary:hover .tema-nom{color:var(--c)}
 
+  /* La descripción de eje y tema está escondida: se abre con el botón «i». */
+  button.info{font:inherit;font-size:13px;font-weight:600;font-style:italic;font-family:var(--serif);
+    width:24px;height:24px;border-radius:50%;border:1px solid #C9CED6;background:#fff;
+    color:var(--tenue);cursor:pointer;padding:0;flex-shrink:0;align-self:center;
+    transition:background .13s,color .13s,border-color .13s}
+  button.info:hover,button.info[aria-expanded=true]{background:var(--c,var(--tinta));
+    color:#fff;border-color:var(--c,var(--tinta))}
+  .info-bloque{display:none}
+  .info-bloque.abierta{display:block}
+  .eje-desc{margin:4px 0 14px;font-size:16px;line-height:1.6;color:var(--suave);max-width:78ch}
+  .tema-desc{margin:6px 0 8px;padding-left:46px;font-size:15.5px;line-height:1.55;
+    color:var(--suave);max-width:82ch}
+  .tema-kw{margin:0 0 10px;padding-left:46px;display:flex;flex-wrap:wrap;gap:6px}
+  .tema-kw .chip{font-size:13.5px;background:#fff;box-shadow:inset 0 0 0 1px var(--regla);color:var(--suave)}
+
   /* ---------- estrategia ---------- */
-  .lista{margin:0 0 6px;padding:0 0 0 39px}
-  .est{display:flex;gap:11px;align-items:baseline;padding:7px 10px 7px 9px;
-    cursor:pointer;border-radius:5px;position:relative;
+  .lista{margin:0 0 8px;padding:0 0 0 46px}
+  .est{display:flex;gap:12px;align-items:baseline;padding:9px 12px 9px 10px;
+    cursor:pointer;border-radius:7px;position:relative;
     transition:background .11s}
   .est:hover{background:#F2F4F7}
   .est[aria-expanded=true]{background:#F2F4F7}
-  .est-cod{font-size:12.5px;color:var(--tenue);font-variant-numeric:tabular-nums;
-    min-width:36px;padding-top:2px;letter-spacing:.01em}
+  .est-cod{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
+    min-width:44px;padding-top:3px;letter-spacing:.01em}
   .est[aria-expanded=true] .est-cod,.est:hover .est-cod{color:var(--c)}
-  .est-nom{font-family:var(--serif);font-size:16px;line-height:1.38;flex:1}
+  .est-nom{font-family:var(--serif);font-size:19px;line-height:1.38;flex:1}
   .est.senalada{background:var(--marca);box-shadow:inset 3px 0 0 var(--marca-borde)}
   .est.senalada:hover{background:#FBEFC5}
-  .insignia{font-size:11px;font-weight:600;border-radius:4px;padding:1.5px 7px;
+  .insignia{font-size:13px;font-weight:600;border-radius:5px;padding:2px 9px;
     white-space:nowrap;align-self:center;letter-spacing:.01em}
-  .insignia.t1{background:#166534;color:#fff}
-  .insignia.t2{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
-  .insignia.t3{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
+  .insignia.cercanas{background:#166534;color:#fff}
+  .insignia.relacionadas{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
+  .insignia.descripcion{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
 
-  /* ---------- ficha ---------- */
-  .ficha{display:none;margin:2px 0 14px 48px;padding:15px 20px 16px;
-    background:#fff;border:1px solid #DDE1E8;border-radius:8px;
+  /* ---------- ficha: sólo palabras clave ---------- */
+  .ficha{display:none;margin:4px 0 16px 56px;padding:18px 22px 14px;
+    background:#fff;border:1px solid #DDE1E8;border-radius:10px;
     border-left:3px solid var(--c);box-shadow:0 1px 2px rgba(21,24,29,.04)}
   .ficha.abierta{display:block}
-  .ficha h4{margin:0 0 3px;font-family:var(--serif);font-size:16.5px;
-    font-weight:600;line-height:1.32}
-  .ficha .ruta{font-size:12.5px;color:var(--tenue);margin:0 0 11px;
-    line-height:1.45}
-  /* Descripción de eje y tema: texto de apoyo, visible al abrirlos. */
-  .eje-desc{margin:2px 0 12px;font-size:13.5px;line-height:1.55;color:var(--suave);max-width:76ch}
-  .tema-desc{margin:4px 0 6px;padding-left:41px;font-size:13px;line-height:1.5;
-    color:var(--suave);max-width:80ch}
-  .tema-kw{margin:0 0 8px;padding-left:41px;display:flex;flex-wrap:wrap;gap:5px}
-  .tema-kw .chip{font-size:11.5px;background:#fff;box-shadow:inset 0 0 0 1px var(--regla);color:var(--suave)}
-  .rotulo{font-size:12px;color:var(--suave);font-weight:500;margin:0 0 6px}
-  .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
-  .chip{font-size:12.5px;background:#F2F4F7;color:#333A45;border-radius:5px;
-    padding:3px 9px;line-height:1.45}
+  .rotulo{font-size:13px;color:var(--suave);font-weight:500;margin:0 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
+  .chip{font-size:14.5px;background:#F2F4F7;color:#333A45;border-radius:6px;
+    padding:4px 11px;line-height:1.45}
   .chip.coincide{background:var(--marca);color:#6B4F00;
     box-shadow:inset 0 0 0 1px var(--marca-borde)}
   mark{background:var(--marca);color:inherit;padding:0 1px;border-radius:2px;
     box-shadow:0 1px 0 var(--marca-borde)}
   .oculto{display:none !important}
-  .nada{padding:30px 4px;color:var(--suave);font-size:14.5px;max-width:52ch}
+  .nada{padding:32px 4px;color:var(--suave);font-size:16px;max-width:54ch}
   .nada b{color:var(--tinta);font-weight:500}
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+  @media (max-width:640px){
+    .eje-nom{font-size:22px}.est-nom{font-size:18px}.tema-nom{font-size:17px}
+    .eje-cnt{display:none}.eje-nom,.tema-nom,.est-nom{min-width:0}
+    .barra{position:static}.niveles{margin-left:0;padding-left:0;border-left:0}
+    button.ctrl{padding:8px 12px;font-size:14px}
+    .lista{padding-left:6px}.ficha{margin-left:8px}.tema-desc,.tema-kw{padding-left:4px}
+  }
 </style></head><body><div id="raiz">
 
 <div class="barra">
   <div class="campo">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>
       <path d="M20 20l-4.3-4.3"/></svg>
     <input type="search" id="q" placeholder="Buscar en el árbol: agua, vivienda, docente…"
@@ -195,14 +208,14 @@ PLANTILLA = """<!DOCTYPE html>
 
 <script>
 const EJES = __DATOS__;
-const NIVELES = __NIVELES__;   /* {top1:[...], top2:[...], top3:[...]} */
+const NIVELES = __NIVELES__;   /* {cercanas:[...], relacionadas:[...], descripcion:[...]} */
 const COINC = __COINCIDENCIAS__;   /* {código: [{termino, campo}]} */
 const TERMINOS = __TERMINOS__;
 
+const ORDEN_NIVELES = ["cercanas", "relacionadas", "descripcion"];
 const NIVEL = {};
-const CLASE = {top1: "t1", top2: "t2", top3: "t3"};
-for(const k in CLASE) (NIVELES[k] || []).forEach(c => { NIVEL[c] = CLASE[k]; });
-const ROTULO = {t1: "Top 1", t2: "Top 2", t3: "Top 3"};
+ORDEN_NIVELES.forEach(k => (NIVELES[k] || []).forEach(c => { NIVEL[c] = k; }));
+const ROTULO = {cercanas: "Más cercanas", relacionadas: "Relacionadas", descripcion: "En la descripción"};
 const HAY_NIVELES = Object.keys(NIVEL).length > 0;
 
 const sinTildes = s => s.normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").toLowerCase();
@@ -248,7 +261,7 @@ function resaltar(texto, terminos, exactos = []){
   return salida + html.slice(pos);
 }
 
-const FLECHA = '<svg class="flecha" width="11" height="11" viewBox="0 0 24 24" '
+const FLECHA = '<svg class="flecha" width="13" height="13" viewBox="0 0 24 24" '
   + 'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" '
   + 'stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
 
@@ -273,6 +286,9 @@ function ficha(e, color){
   return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">' + chips + '</div>';
 }
 
+const BOTON_INFO = '<button class="info" type="button" aria-expanded="false" '
+  + 'aria-label="Ver la descripción" title="Descripción">i</button>';
+
 function dibujar(){
   const partes = [];
   for(const eje of EJES){
@@ -291,16 +307,19 @@ function dibujar(){
       return '<details class="tema"><summary>' + FLECHA
         + '<span class="tema-num">' + esc(t.num) + '</span>'
         + '<span class="tema-nom" data-raw="' + esc(t.nombre) + '">' + resaltar(t.nombre, TERMINOS) + '</span>'
+        + (t.desc ? BOTON_INFO : '')
         + '<span class="tema-cnt">' + n + '</span></summary>'
-        + (t.desc ? '<p class="tema-desc">' + esc(t.desc) + '</p>' : '')
-        + (t.kw.length ? '<div class="tema-kw">' + t.kw.map(k => '<span class="chip">' + esc(k) + '</span>').join("") + '</div>' : '')
+        + (t.desc ? '<div class="info-bloque"><p class="tema-desc">' + esc(t.desc) + '</p>'
+          + (t.kw.length ? '<div class="tema-kw">' + t.kw.map(k => '<span class="chip">' + esc(k) + '</span>').join("") + '</div>' : '')
+          + '</div>' : '')
         + '<div class="lista">' + ests + '</div></details>';
     }).join("");
     partes.push('<details class="eje" style="--c:' + eje.color + '"><summary>' + FLECHA
       + '<span class="eje-num">' + eje.num + '</span>'
       + '<span class="eje-nom" data-raw="' + esc(eje.nombre) + '">' + resaltar(eje.nombre, TERMINOS) + '</span>'
+      + (eje.desc ? BOTON_INFO : '')
       + '<span class="eje-cnt">' + eje.n_est + ' estrategias</span></summary>'
-      + (eje.desc ? '<p class="eje-desc">' + esc(eje.desc) + '</p>' : '')
+      + (eje.desc ? '<div class="info-bloque"><p class="eje-desc">' + esc(eje.desc) + '</p></div>' : '')
       + temas + '</details>');
   }
   document.getElementById("arbol").innerHTML = partes.join("");
@@ -313,6 +332,15 @@ function alternar(el){
   el.setAttribute("aria-expanded", abierta ? "true" : "false");
 }
 document.getElementById("arbol").addEventListener("click", ev => {
+  const inf = ev.target.closest("button.info");
+  if(inf){
+    ev.preventDefault();                       /* no pliega ni despliega el eje o tema */
+    const d = inf.closest("details");
+    const abierta = d.querySelector(":scope > .info-bloque").classList.toggle("abierta");
+    inf.setAttribute("aria-expanded", String(abierta));
+    if(abierta) d.open = true;
+    return;
+  }
   const el = ev.target.closest(".est");
   if(el) alternar(el);
 });
@@ -442,6 +470,8 @@ document.getElementById("abrir").onclick = () =>
   document.querySelectorAll("details").forEach(d => d.open = true);
 document.getElementById("cerrar").onclick = () => {
   document.querySelectorAll("details").forEach(d => d.open = false);
+  document.querySelectorAll(".info-bloque.abierta").forEach(b => b.classList.remove("abierta"));
+  document.querySelectorAll("button.info").forEach(b => b.setAttribute("aria-expanded", "false"));
   document.querySelectorAll(".ficha").forEach(f => f.classList.remove("abierta"));
   document.querySelectorAll(".est").forEach(e => e.setAttribute("aria-expanded","false"));
   /* Al quedar corto el árbol, vuelve al inicio para que no quede espacio en blanco. */
@@ -450,22 +480,25 @@ document.getElementById("cerrar").onclick = () => {
 
 dibujar();
 
-/* Botones «Mostrar»: Todos, Top 1, Top 2, Top 3. Se ve un solo grupo a la vez; pulsar de
-   nuevo el grupo activo, o «Todos», vuelve a mostrar todo. Van al lado de Plegar/Desplegar. */
+/* Botones «Mostrar»: Más cercanas, Relacionadas, En la descripción y Todos. Se ve un solo
+   grupo a la vez; pulsar de nuevo el grupo activo, o «Todos», vuelve a mostrar todo. Tras
+   una respuesta del chat arranca en «Más cercanas». */
 if(HAY_NIVELES){
   const grupo = document.createElement("div");
   grupo.className = "niveles";
   grupo.innerHTML = '<span class="rot">Mostrar:</span>'
-    + '<button class="ctrl" type="button" data-n="" aria-pressed="true">Todos</button>'
-    + ["t1","t2","t3"].map(c => {
+    + ORDEN_NIVELES.map(c => {
       const n = document.querySelectorAll(".est." + c).length;
       return n ? '<button class="ctrl" type="button" data-n="' + c + '" aria-pressed="false">'
         + ROTULO[c] + ' <span class="n">(' + n + ')</span></button>' : "";
-    }).join("");
+    }).join("")
+    + '<button class="ctrl" type="button" data-n="" aria-pressed="false">Todos</button>';
   document.querySelector(".acciones").appendChild(grupo);
   const pintarEstado = () => grupo.querySelectorAll("button").forEach(b =>
     b.setAttribute("aria-pressed",
       String(b.dataset.n ? FILTRO.has(b.dataset.n) : FILTRO.size === 0)));
+  if((NIVELES.cercanas || []).length) FILTRO.add("cercanas");
+  pintarEstado();
   grupo.addEventListener("click", ev => {
     const b = ev.target.closest("button[data-n]");
     if(!b) return;
@@ -474,16 +507,16 @@ if(HAY_NIVELES){
     else { FILTRO.clear(); FILTRO.add(n); }
     pintarEstado();
     filtrar();
-    const destino = document.querySelector(FILTRO.size ? ".est.senalada:not(.oculto)" : ".est.t1");
+    const destino = document.querySelector(FILTRO.size ? ".est.senalada:not(.oculto)" : ".est.cercanas");
     if(destino) destino.scrollIntoView({block:"center", behavior:"auto"});
   });
 }
 filtrar();
 
-/* Lleva al Top 1: primero asegura que el árbol esté a la vista en la página y luego
+/* Lleva a la primera de «Más cercanas»: primero asegura que el árbol esté a la vista en la página y luego
    centra la estrategia dentro del árbol. */
-function irAlTop1(suave){
-  const primera = document.querySelector(".est.t1");
+function irALaPrimera(suave){
+  const primera = document.querySelector(".est.cercanas");
   if(!primera) return;
   const quieto = !suave || matchMedia("(prefers-reduced-motion:reduce)").matches;
   try{ if(window.frameElement) window.frameElement.scrollIntoView({block:"nearest", behavior:"auto"}); }
@@ -491,17 +524,17 @@ function irAlTop1(suave){
   primera.scrollIntoView({block:"center", behavior: quieto ? "auto" : "smooth"});
 }
 
-/* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las Top 1
+/* Si el chat señaló estrategias, se abren sus ramas, se abre la ficha de las «Más cercanas»
    (todas por igual) y se baja a la primera en el orden del árbol. */
 if(HAY_NIVELES){
   document.querySelectorAll(".est.senalada").forEach(e => {
     let p = e.parentElement;
     while(p){ if(p.tagName === "DETAILS") p.open = true; p = p.parentElement; }
   });
-  document.querySelectorAll(".est.t1").forEach(e => alternar(e));
-  setTimeout(() => irAlTop1(true), 160);
+  document.querySelectorAll(".est.cercanas").forEach(e => alternar(e));
+  setTimeout(() => irALaPrimera(true), 160);
   /* otra vez cuando ya cargaron las fuentes y el diseño se asentó */
-  setTimeout(() => irAlTop1(false), 900);
+  setTimeout(() => irALaPrimera(false), 900);
 }
 </script></body></html>
 """
@@ -510,7 +543,7 @@ if(HAY_NIVELES){
 def render(df, niveles=None, terminos=None, coincidencias=None) -> str:
     """Devuelve el HTML del árbol.
 
-    niveles:       {'top1': [...], 'top2': [...], 'top3': [...]} con los
+    niveles:       {'cercanas': [...], 'relacionadas': [...], 'descripcion': [...]} con los
                    códigos que encontró el chat; se marcan en amarillo con su insignia.
     terminos:      términos a resaltar dentro del texto.
     coincidencias: {código: [{'termino', 'campo'}]}, para resaltar palabras clave.

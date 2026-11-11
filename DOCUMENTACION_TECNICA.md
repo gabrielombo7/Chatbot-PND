@@ -154,27 +154,38 @@ El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a pa
 de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
 rankings distintos para la misma pregunta.
 
-Los **niveles** son umbrales sobre el score, relativos al mejor: *Top 1* (≥ 80 %,
-incluidos los empates con el mejor; hasta 5 en el chat), *Top 2* (≥ 30 %, hasta 10,
-`MAX_TOP2`) y *Top 3* (el resto). Top 2 y Top 3 sólo se ven en el árbol. Mismo
-score = mismo nivel; cuando un tope partiría un empate, el grupo entero baja de nivel.
-Las constantes están al inicio de `buscador.py`.
+Las **categorías** (claves `cercanas`, `relacionadas`, `descripcion`) son: *Más cercanas*
+(≥ 80 % del mejor score, incluidos los empates con el mejor; hasta 5 en el chat),
+*Relacionadas* (≥ 30 %, hasta 10, `MAX_RELACIONADAS`) y *En la descripción* (sin puntaje:
+estrategias sin coincidencia propia cuyo tema o eje menciona el término en su descripción,
+buscando sólo con los términos «escrito» —los del usuario o el modelo—, porque los
+sinónimos genéricos del diccionario la inundarían). Lo que queda por debajo del 30 % no se
+muestra (`n_omitidas`). Mismo score = misma categoría; cuando un tope partiría un empate,
+el grupo entero baja. Las constantes están al inicio de `buscador.py`.
+
+Una **consulta muy amplia** (`muy_amplia`: más de `MAX_CHAT` «más cercanas» o más de
+`MUCHOS_RESULTADOS` marcadas) trae `sugerencias`: palabras clave del PND, tal cual, que
+contienen los términos que coincidieron y dicen algo más (`_sugerencias`). El prompt de
+`motor.py` obliga a buscar aunque llegue una sola palabra y, si `muy_amplia`, a avisarlo y
+preguntar de qué tipo con esas sugerencias.
 
 Las **reglas** (`data/reglas.csv`, columnas `aplica_a`, `palabras_disparadoras`,
 `nota`) restringen grupos de estrategias: si la pregunta no menciona ninguna palabra
 disparadora (se compara por raíz y sólo con los términos que llegaron a la búsqueda,
-no con los del diccionario), el grupo queda en Top 3 y la interfaz muestra la nota.
+no con los del diccionario), el grupo no se muestra y la interfaz lo avisa en «Notas».
 Hoy: el eje 7 (reconstrucción tras el sismo) sólo se sugiere si se habla de un
 desastre. Si todo lo que coincidió pertenece a un grupo restringido, se muestra igual.
 `validar_reglas()` corre al arrancar y falla con un mensaje claro si el archivo apunta
 a algo que no existe.
 
-`buscar_estrategias` devuelve `resultados` (las Top 1 con evidencia: lo único que ve el
-modelo) y, sólo para la interfaz, `niveles`, `coincidencias` y
-`avisos_reglas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol
-marca todas en amarillo con su insignia, abre la ficha de las Top 1, resalta sus
-palabras clave que coincidieron (con la misma regla de raíz del buscador) y trae
-botones para ver un nivel a la vez (o todos).
+`buscar_estrategias` devuelve `resultados` (las «más cercanas» con evidencia; lo que ve
+el modelo, junto con `n_cercanas`, `muy_amplia`, `sugerencias` y, si no hay cercanas,
+`en_descripcion`) y, sólo para la interfaz, `niveles`, `coincidencias`, `avisos_reglas` y
+`n_omitidas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol marca
+todas en amarillo con su insignia, deja preseleccionada «Más cercanas» con su ficha
+abierta, resalta sus palabras clave que coincidieron (con la misma regla de raíz del
+buscador), esconde las descripciones de eje y tema tras un botón «i» y trae botones para ver
+una categoría a la vez (o todo).
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
 capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin

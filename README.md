@@ -69,35 +69,45 @@ que coincide, se suma:
 Ese score lo calcula `buscador.py`, no el modelo: el modelo sólo elige los términos
 de búsqueda.
 
-Con el score se arman tres niveles, siempre relativos al mejor resultado:
+Con el score se arman dos grupos, siempre relativos al mejor resultado, y un tercero
+que no depende del score:
 
-| Nivel | Regla | Dónde se ve |
+| Categoría | Regla | Dónde se ve |
 |---|---|---|
-| **Top 1** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
-| **Top 2** | ≥ 30 % del mejor, hasta 10 | árbol |
-| **Top 3** | el resto | sólo el árbol |
+| **Más cercanas** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
+| **Relacionadas** | ≥ 30 % del mejor, hasta 10 | árbol |
+| **En la descripción** | estrategias sin coincidencia propia cuyo **tema o eje** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
 
-Dos estrategias con el mismo score reciben el mismo trato: nunca se elige entre ellas.
-Los umbrales y los topes están al comienzo de `buscador.py` (`UMBRAL_TOP1`,
-`UMBRAL_TOP2`, `MAX_CHAT`, `MAX_TOP2`).
+Lo que coincide por debajo del 30 % no se muestra. Dos estrategias con el mismo score
+reciben el mismo trato: nunca se elige entre ellas. Los umbrales y los topes están al
+comienzo de `buscador.py` (`UMBRAL_CERCANAS`, `UMBRAL_RELACIONADAS`, `MAX_CHAT`,
+`MAX_RELACIONADAS`).
+
+**Consultas amplias.** Si una palabra da demasiados resultados (por ejemplo
+«infraestructura»: más de 5 empatadas en «Más cercanas», o más de 20 marcadas), el
+buscador lo señala y ofrece, tal cual están en el PND, las palabras clave que la
+concretan («Infraestructura deportiva», «Infraestructura cultural»…). El chat dice que
+da muchos resultados y pregunta de qué tipo, y el árbol muestra todo de todos modos.
+Una palabra suelta se busca siempre, sin pedir aclaración antes.
 
 **Reglas (`data/reglas.csv`).** Hay grupos de estrategias que solo tienen sentido para
 ciertas preguntas. Hoy: el **eje 7** (reconstrucción tras el sismo) solo se sugiere si
 la pregunta menciona un desastre —terremoto, incendio, inundación…—; si no, sus
-estrategias quedan en Top 3 y la respuesta lo dice. El archivo tiene tres columnas:
-`aplica_a` (`eje 7`, `tema 7.1` o un código `7.1.3`), `palabras_disparadoras`
+estrategias no se muestran y la respuesta lo avisa en «Notas». El archivo tiene tres
+columnas: `aplica_a` (`eje 7`, `tema 7.1` o un código `7.1.3`), `palabras_disparadoras`
 (separadas por `;`) y `nota` (si lleva comas, entre comillas). Se edita en Excel; si
 apunta a algo que no existe, la aplicación avisa al arrancar.
 
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
-interfaz la muestra. La respuesta del chat trae las Top 1 y, debajo, el desplegable
-«Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas que
-actuaron, cuántas
-estrategias coincidieron y cómo se calcula el orden. En el árbol, todas las que
-coincidieron se marcan en amarillo con su insignia; después de cada respuesta baja a
-la Top 1, que se abre sola con sus palabras clave resaltadas, y los botones
-«Mostrar: Todos · Top 1 · Top 2 · Top 3» (junto a Plegar/Desplegar) filtran por nivel.
-Dos pequeños «i» explican en pantalla qué es el chat y qué significan Top 1, 2 y 3.
+interfaz la muestra. La respuesta del chat trae las «Más cercanas» y, debajo, el
+desplegable «Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas
+que actuaron, cuántas estrategias hay en cada categoría y cómo se calcula el orden. En
+el árbol, todas las marcadas se pintan en amarillo con su insignia; después de cada
+respuesta el árbol queda en «Más cercanas» (ficha abierta, con sus palabras clave
+resaltadas) y los botones «Mostrar: Más cercanas · Relacionadas · En la descripción ·
+Todos» (junto a Plegar/Desplegar) cambian de grupo. La descripción de cada eje y tema
+está escondida tras su botón «i». Dos pequeños «i» de la página explican qué es el chat y
+qué significan las categorías.
 Si la sugerencia está mal, se puede ver exactamente por qué.
 
 El buscador propio del árbol resalta lo que escribes y tiene el botón «Exacta» (sólo

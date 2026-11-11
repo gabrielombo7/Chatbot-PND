@@ -19,7 +19,7 @@ MAX_TOKENS = 1200
 MAX_VUELTAS = 6          # tope de iteraciones del ciclo de herramientas
 MAX_TURNOS_HISTORIAL = 8  # cuántos mensajes previos se reenvían al modelo
 # Claves del resultado de la búsqueda que sólo usa la interfaz (el modelo no las ve).
-SOLO_INTERFAZ = ("niveles", "coincidencias", "avisos_reglas")
+SOLO_INTERFAZ = ("niveles", "coincidencias", "avisos_reglas", "n_omitidas")
 
 CAT = B.catalogo()
 
@@ -108,7 +108,9 @@ ESTRUCTURA DISPONIBLE ({CAT['n_estrategias']} estrategias, {CAT['n_temas']} tema
 
 CÓMO TRABAJAS
 1. No tienes el contenido del PND en memoria. Para cada pregunta sobre ubicación llamas \
-buscar_estrategias. Sin llamarla no tienes nada que responder.
+buscar_estrategias. Sin llamarla no tienes nada que responder. Aunque la persona escriba \
+UNA SOLA PALABRA (por ejemplo «infraestructura»), la buscas de inmediato: nunca pidas \
+aclaración antes de buscar.
 2. Al armar los términos, incluye las palabras de la persona Y los términos con que el \
 documento nombraría eso. La herramienta es literal y busca en las palabras clave, el \
 nombre y el tema de cada estrategia (las estrategias no tienen descripción): "colegio" no aparece en las palabras clave del PND, pero \
@@ -125,12 +127,21 @@ nombres, no agregas estrategias "parecidas" de tu conocimiento general.
 - Siempre dices DÓNDE coincidió cada opción: en las palabras clave, en el nombre de la \
 estrategia o en el tema. Esa es la justificación de la sugerencia y la persona necesita \
 verla para juzgarla.
-- Presentas todas las opciones que vienen en 'resultados': son las Top 1, casi \
+- Presentas las opciones que vienen en 'resultados': son las «más cercanas», casi \
 siempre una y varias sólo si empatan o están muy parejas. No las ordenes ni elijas entre \
-las que empatan. Las demás la persona las ve en el árbol, junto al chat: no las \
-menciones. Si 'n_top1' es mayor que las que vienen, agrega una línea: «Hay N \
-estrategias igual de cercanas (Top 1); el resto está en el árbol.» Escribes "podría \
-corresponder a", no "corresponde a". No menciones puntajes ni porcentajes.
+las que empatan. Las demás (relacionadas y las que sólo aparecen en una descripción) la \
+persona las ve en el árbol, junto al chat: no las menciones. Si 'n_cercanas' es mayor que \
+las que vienen, agrega una línea: «Hay N estrategias igual de cercanas; el resto está en \
+el árbol.» Escribes "podría corresponder a", no "corresponde a". No menciones puntajes ni \
+porcentajes.
+- Si 'muy_amplia' es verdadero, la consulta da demasiados resultados. Lo dices en una frase \
+(«Esto da muchos resultados»), presentas como máximo 3 opciones y preguntas qué tipo o \
+cuál busca, ofreciendo las 'sugerencias' tal cual vienen (son palabras clave del PND). \
+Ejemplo: «Infraestructura da muchos resultados: ¿de qué tipo? Por ejemplo, Infraestructura \
+cultural, deportiva o digital.» Aun así la persona ya ve todas en el árbol.
+- Si 'resultados' viene vacío pero hay 'en_descripcion', lo dices: ninguna estrategia \
+coincide en sus palabras clave, y estas son las que mencionan el término en la descripción \
+de su tema o eje; presentas esas (máximo 3) con el mismo formato.
 - La interfaz ya muestra los términos buscados, y los sinónimos y demás notas van en el \
 desplegable «Notas»: no los repitas.
 - La línea «La estrategia se centra en…» lista 3 o 4 de las 'palabras_clave_cortas' de esa \
@@ -190,7 +201,7 @@ def responder(client, historial):
             para_modelo = salida
             if isinstance(salida, dict):
                 terminos.update(t for t in salida.get("terminos_buscados", []) if len(t) > 2)
-                # Lo demás es para la interfaz; el modelo sólo ve las Top 1.
+                # Lo demás es para la interfaz; el modelo sólo ve las más cercanas.
                 para_modelo = {k: v for k, v in salida.items() if k not in SOLO_INTERFAZ}
 
             resultados.append({"type": "tool_result", "tool_use_id": bloque.id,
@@ -204,11 +215,11 @@ def responder(client, historial):
 def marcas_arbol(llamadas):
     """Une lo que dejaron las búsquedas para el árbol.
 
-    Devuelve (niveles, coincidencias): niveles = {'top1': [...], 'top2': [...],
-    'top3': [...]} con códigos de mejor a peor; coincidencias = {código:
+    Devuelve (niveles, coincidencias): niveles = {'cercanas': [...], 'relacionadas': [...],
+    'descripcion': [...]} con códigos de mejor a peor; coincidencias = {código:
     [{termino, campo}]}. Si un código sale en varias búsquedas, gana el mejor nivel.
     """
-    orden = ("top1", "top2", "top3")
+    orden = ("cercanas", "relacionadas", "descripcion")
     nivel, coincidencias = {}, {}
     for ll in llamadas:
         s = ll["resultado"]
@@ -221,6 +232,6 @@ def marcas_arbol(llamadas):
         for cod, evs in (s.get("coincidencias") or {}).items():
             coincidencias.setdefault(cod, evs)
         if s.get("codigo") and s["codigo"] not in nivel:   # ficha pedida por código
-            nivel[s["codigo"]] = "top1"
+            nivel[s["codigo"]] = "cercanas"
     niveles = {k: [c for c, n in nivel.items() if n == k] for k in orden}
     return niveles, coincidencias

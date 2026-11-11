@@ -34,8 +34,8 @@ st.set_page_config(page_title="Orientador del PND 2026-2030",
                    page_icon="🧭", layout="wide",
                    initial_sidebar_state="collapsed")
 
-ALTO_ARBOL = 760
-ALTO_CHAT = 560      # alto de la conversación cuando ya es larga (entonces tiene su propio scroll)
+ALTO_ARBOL = 840
+ALTO_CHAT = 640      # alto de la conversación cuando ya es larga (entonces tiene su propio scroll)
 MENSAJES_PARA_SCROLL = 4   # con menos mensajes el recuadro se ajusta al contenido
 
 # ---------------------------------------------------------------------------
@@ -45,7 +45,8 @@ st.markdown("""
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
   .stApp{background:#FBFBFC}
-  .block-container{padding-top:1.5rem;padding-bottom:1rem;max-width:1500px}
+  .block-container{padding-top:1.5rem;padding-bottom:1rem;max-width:1900px;
+    padding-left:1.25rem !important;padding-right:1.25rem !important}
   html,body,[class*="st-"],.stMarkdown{font-family:"IBM Plex Sans",system-ui,sans-serif}
   /* Los iconos de Streamlit son una fuente de ligaduras: si se les pisa la fuente,
      se ve el nombre del icono (p. ej. «_arrow_right») en vez del dibujo. */
@@ -158,11 +159,13 @@ def tip(cuerpo, lado="izq"):
 
 
 TIP_ARBOL = (
-    "<span class=\"tp\"><b>Top 1, Top 2 y Top 3</b> son grupos de estrategias: las que encontró el chat, "
-    "según qué tan cerca están de tu pregunta.</span>"
-    "<span class=\"tp\"><b>Top 1:</b> la mejor, o las mejores si empatan. <b>Top 2:</b> parecidas. "
-    "<b>Top 3:</b> coincidencias débiles.</span>"
-    "<span class=\"tp\">Todas se pintan en amarillo; con «Mostrar» puedes ver sólo un grupo.</span>")
+    "<span class=\"tp\">Cuando el chat responde, el árbol marca en amarillo las estrategias "
+    "en tres grupos:</span>"
+    "<span class=\"tp\"><b>Más cercanas:</b> la mejor, o las mejores si empatan. "
+    "<b>Relacionadas:</b> parecidas. <b>En la descripción:</b> su tema o eje menciona la "
+    "palabra en su descripción.</span>"
+    "<span class=\"tp\">Con «Mostrar» ves un grupo a la vez, o todo el árbol. La «i» de cada "
+    "eje y tema muestra su descripción.</span>")
 
 TIP_CHAT = (
     "<span class=\"tp\">Describe el proyecto en tus palabras. El asistente las traduce al vocabulario "
@@ -183,9 +186,9 @@ def incrustar(html, alto):
 
 def pintar_arbol():
     st.markdown('<div class="rotulo-col">Árbol del Plan' + tip(TIP_ARBOL) + '</div>'
-                '<p class="ayuda-col">Abre un eje o un tema para ver de qué trata, y haz clic '
-                'en una estrategia para ver sus palabras clave. El buscador de esta sección '
-                'es literal: encuentra la palabra sólo si está escrita igual.</p>',
+                '<p class="ayuda-col">Abre un eje o un tema, y haz clic en una estrategia para ver '
+                'sus palabras clave. El buscador de esta sección es literal: encuentra la '
+                'palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
     incrustar(arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
                            st.session_state.coincidencias), ALTO_ARBOL)
@@ -216,9 +219,13 @@ def pintar_notas(busquedas):
     ult = busquedas[-1]
     niv = ult.get("niveles") or {}
     if ult.get("n_resultados"):
-        notas.append(f"Coinciden {ult['n_resultados']} de las {CAT['n_estrategias']} "
-                     f"estrategias: Top 1 ({len(niv.get('top1', []))}), "
-                     f"Top 2 ({len(niv.get('top2', []))}) y Top 3 ({len(niv.get('top3', []))}).")
+        notas.append(f"Marcadas {ult['n_resultados']} de las {CAT['n_estrategias']} estrategias: "
+                     f"Más cercanas ({len(niv.get('cercanas', []))}), "
+                     f"Relacionadas ({len(niv.get('relacionadas', []))}) y "
+                     f"En la descripción ({len(niv.get('descripcion', []))}).")
+        if ult.get("n_omitidas"):
+            notas.append(f"Otras {ult['n_omitidas']} coinciden muy poco (menos del "
+                         f"{round(100 * B.UMBRAL_RELACIONADAS)} % del mejor puntaje) y no se muestran.")
     else:
         notas.append(f"Ninguna de las {CAT['n_estrategias']} estrategias contiene esos términos.")
 
@@ -229,8 +236,9 @@ def pintar_notas(busquedas):
         f"tema {pw['tema']}) × el origen del término "
         "(×2 los de tu pregunta, ×1 los sinónimos) × su especificidad (un término que "
         "aparece en muchas estrategias vale menos). "
-        f"Top 1: desde el {round(100 * B.UMBRAL_TOP1)} % del mejor puntaje; "
-        f"Top 2: desde el {round(100 * B.UMBRAL_TOP2)} %; Top 3: el resto.")
+        f"Más cercanas: desde el {round(100 * B.UMBRAL_CERCANAS)} % del mejor puntaje; "
+        f"Relacionadas: desde el {round(100 * B.UMBRAL_RELACIONADAS)} %. «En la descripción» "
+        "no tiene puntaje: son estrategias cuyo tema o eje menciona la palabra en su descripción.")
 
     with st.expander("Notas"):
         for n in notas:
@@ -334,7 +342,7 @@ def pintar_chat():
 
 
 if st.session_state.chat_abierto:
-    col_arbol, col_chat = st.columns([1.7, 1], gap="large")
+    col_arbol, col_chat = st.columns([3.7, 1], gap="medium")
     with col_arbol:
         pintar_arbol()
     with col_chat:

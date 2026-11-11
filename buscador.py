@@ -18,8 +18,9 @@ estrategia no tiene descripción; las descripciones de eje y tema sólo se muest
 El orden sale de un score que se explica en una línea: por cada término que coincide,
 peso del campo x multiplicador de origen x especificidad del término (un término que
 aparece en muchas estrategias vale poco; uno muy raro no pasa de cierto tope). Lo calcula esta función, no el modelo: el
-modelo sólo elige los términos. Los niveles (Top 1 / Top 2 / Top 3) son umbrales sobre
-ese score, relativos al mejor. data/reglas.csv restringe grupos de estrategias (p. ej.
+modelo sólo elige los términos. Los niveles (Más cercanas / Relacionadas) son umbrales sobre
+ese score, relativos al mejor; lo que queda por debajo no se muestra. «En la descripción»
+es una categoría aparte, sin puntaje: estrategias cuyo tema o eje menciona el término. data/reglas.csv restringe grupos de estrategias (p. ej.
 el eje 7, sólo para desastres) a las preguntas que mencionen sus palabras disparadoras.
 
 Cada resultado viene con la evidencia: qué término coincidió y en qué campo.
@@ -50,10 +51,12 @@ PESO_CAMPO = {
 MIN_ESTRATEGIAS_ESPECIFICIDAD = 3
 
 # Niveles, como fracción del mejor score. Se ajustan aquí, sin tocar lo demás.
-UMBRAL_TOP1 = 0.80       # >= 80 % del mejor (los empates con el mejor siempre entran)
-UMBRAL_TOP2 = 0.30       # >= 30 % del mejor; por debajo, Top 3
-MAX_CHAT = 5             # Top 1 que se muestran en la respuesta
-MAX_TOP2 = 10            # tope de estrategias en Top 2 (lo que sobra pasa a Top 3)
+UMBRAL_CERCANAS = 0.80       # «Más cercanas»: >= 80 % del mejor (los empates con el mejor entran)
+UMBRAL_RELACIONADAS = 0.30   # «Relacionadas»: >= 30 % del mejor; por debajo no se muestra
+MAX_CHAT = 5                 # «Más cercanas» que se muestran en la respuesta del chat
+MAX_RELACIONADAS = 10        # tope de «Relacionadas» (lo que sobra no se muestra)
+MUCHOS_RESULTADOS = 20       # más coincidencias que esto = consulta muy amplia
+MAX_SUGERENCIAS = 6          # opciones que se ofrecen para concretar una consulta amplia
 
 # Palabras demasiado comunes para que una coincidencia signifique algo.
 VACIAS = set("""de la el los las un una unos unas y o u a en con por para del al se su sus
@@ -242,9 +245,12 @@ def cargar_estructura() -> pd.DataFrame:
     df["_kw"] = df["kw"].map(normalizar)
     df["_est"] = df["est"].map(normalizar)
     df["_tema"] = df["tema"].map(normalizar)
+    df["_tema_desc"] = df["tema_desc"].map(normalizar)
+    df["_eje_desc"] = df["eje_desc"].map(normalizar)
 
     # Conjunto de raíces por campo, para la capa 2.
-    for destino, origen in [("_r_kw", "_kw"), ("_r_est", "_est"), ("_r_tema", "_tema")]:
+    for destino, origen in [("_r_kw", "_kw"), ("_r_est", "_est"), ("_r_tema", "_tema"),
+                            ("_r_tema_desc", "_tema_desc"), ("_r_eje_desc", "_eje_desc")]:
         df[destino] = df[origen].apply(lambda t: {raiz(w) for w in t.split() if len(w) >= 4})
 
     _TABLAS = {
@@ -346,7 +352,14 @@ _CAMPOS = [
 ]
 
 
-def _coincide(termino: str, fila, usar_raiz: bool):
+# Descripciones de tema y eje: categoría aparte («En la descripción»), sin puntaje.
+_CAMPOS_DESC = [
+    ("descripción del tema", "_tema_desc", "_r_tema_desc"),
+    ("descripción del eje", "_eje_desc", "_r_eje_desc"),
+]
+
+
+def _coincide(termino: str, fila, usar_raiz: bool, campos=_CAMPOS):
     """¿Aparece el término en esta estrategia? Devuelve (campo, tipo) o None.
 
     Recorre los campos en orden de peso y devuelve la primera coincidencia,
@@ -357,7 +370,7 @@ def _coincide(termino: str, fila, usar_raiz: bool):
         return None
 
     # Capa 1: literal. Si el término es una frase, debe aparecer completa.
-    for nombre, campo, _ in _CAMPOS:
+    for nombre, campo, _ in campos:
         if termino in fila[campo]:
             return nombre, "literal"
 
@@ -368,7 +381,7 @@ def _coincide(termino: str, fila, usar_raiz: bool):
     objetivo = {raiz(w) for w in palabras if len(w) >= 4}
     if not objetivo:
         return None
-    for nombre, _, campo_raices in _CAMPOS:
+    for nombre, _, campo_raices in campos:
         if objetivo <= fila[campo_raices]:
             return nombre, "raíz"
     return None
@@ -381,8 +394,8 @@ _REGLAS = None
 
 
 def cargar_reglas() -> list:
-    """data/reglas.csv: grupos de estrategias que sólo se sugieren (Top 1 o Top 2) si
-    la pregunta menciona alguna palabra disparadora; si no, quedan en Top 3.
+    """data/reglas.csv: grupos de estrategias que sólo se sugieren si la pregunta
+    menciona alguna palabra disparadora; si no, no se muestran.
 
     Columnas: 'aplica_a' ('eje 7', 'tema 7.1' o un código como '7.1.3'),
     'palabras_disparadoras' (separadas por ';') y 'nota' (la frase que se muestra
@@ -461,6 +474,26 @@ def _cortar_sin_partir_empates(lista, n):
     return [r for r in lista[:n] if r["score"] != empate]
 
 
+def _sugerencias(estrategias, buscados) -> list:
+    """Palabras clave del PND (tal cual) que concretan un término amplio: las que lo
+    contienen y dicen algo más («Infraestructura hospitalaria» para «infraestructura»),
+    de la más frecuente a la menos. Si hay pocas, se completa con los temas."""
+    cuenta, original = Counter(), {}
+    for r in estrategias:
+        for k in r["palabras_clave"]:
+            kn = normalizar(k)
+            if any(t in kn and t != kn for t in buscados):
+                cuenta[kn] += 1
+                original.setdefault(kn, k)
+    salida = [original[k] for k in sorted(cuenta, key=lambda k: (-cuenta[k], k))][:MAX_SUGERENCIAS]
+    if len(salida) < 3:
+        for r in estrategias:
+            tema = r["tema"].split(" ", 1)[-1]
+            if tema not in salida and len(salida) < MAX_SUGERENCIAS:
+                salida.append(tema)
+    return salida
+
+
 def _ev(e, h):
     return {"termino": e["termino"], "origen": e["origen"], "campo": h[0], "tipo": h[1]}
 
@@ -469,8 +502,9 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
     """Busca estrategias del PND que contengan los términos dados.
 
     No interpreta la intención ni redacta nada. Devuelve:
-      resultados    las Top 1 (hasta MAX_CHAT), con evidencia: lo único que ve el modelo.
-      niveles       códigos de TODAS las que coincidieron, por nivel: sólo árbol.
+      resultados    las «más cercanas» (hasta MAX_CHAT), con evidencia: lo que ve el modelo,
+                    junto con n_cercanas, muy_amplia y sugerencias.
+      niveles       códigos por categoría (cercanas, relacionadas, descripcion): sólo árbol.
       coincidencias qué término coincidió en qué campo, por código: sólo árbol.
       avisos_reglas notas de las reglas que actuaron: sólo interfaz.
     """
@@ -516,31 +550,45 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
     # Mismo score = mismo trato; el código sólo ordena de forma estable.
     resultados.sort(key=lambda r: (-r["score"], r["codigo"]))
 
-    # 4) Reglas: lo restringido (p. ej. eje 7 sin hablar de desastres) queda en Top 3.
+    # 4) Reglas: lo restringido (p. ej. eje 7 sin hablar de desastres) no se muestra.
     #    Si TODO lo que coincidió es restringido, se muestra igual: no hay otra cosa.
     restringidas, avisos = _restringidas(df, expandidos)
-    if all(r["codigo"] in restringidas for r in resultados):
+    if resultados and all(r["codigo"] in restringidas for r in resultados):
         restringidas, avisos = set(), []
     mejor = max((r["score"] for r in resultados if r["codigo"] not in restringidas), default=0)
 
-    # 5) Niveles, como fracción del mejor score.
+    # 5) Niveles, como fracción del mejor score. Lo que queda por debajo no se muestra.
     for r in resultados:
         frac = r["score"] / mejor if mejor else 1.0
         r["pct_del_mejor"] = round(100 * frac)
         if r["codigo"] in restringidas:
-            r["nivel"] = "top3"
+            r["nivel"] = "omitida"
         else:
-            r["nivel"] = ("top1" if frac >= UMBRAL_TOP1
-                          else "top2" if frac >= UMBRAL_TOP2 else "top3")
-    top1 = [r for r in resultados if r["nivel"] == "top1"]
-    candidatas = [r for r in resultados if r["nivel"] == "top2"]
-
-    en_chat = top1[:MAX_CHAT]             # si hay más Top 1 empatadas, el resto sólo va al árbol
-    top2 = _cortar_sin_partir_empates(candidatas, MAX_TOP2)
-    en_top2 = {r["codigo"] for r in top2}
+            r["nivel"] = ("cercanas" if frac >= UMBRAL_CERCANAS
+                          else "relacionadas" if frac >= UMBRAL_RELACIONADAS else "omitida")
+    cercanas = [r for r in resultados if r["nivel"] == "cercanas"]
+    candidatas = [r for r in resultados if r["nivel"] == "relacionadas"]
+    relacionadas = _cortar_sin_partir_empates(candidatas, MAX_RELACIONADAS)
+    en_rel = {r["codigo"] for r in relacionadas}
     for r in candidatas:
-        if r["codigo"] not in en_top2:
-            r["nivel"] = "top3"
+        if r["codigo"] not in en_rel:
+            r["nivel"] = "omitida"
+    en_chat = cercanas[:MAX_CHAT]         # si hay más empatadas, el resto sólo va al árbol
+
+    # 6) En la descripción: estrategias sin coincidencia propia cuyo tema o eje menciona
+    #    el término en su descripción. No tiene puntaje. Busca sólo con los términos que
+    #    llegan de la persona o del modelo: los sinónimos del diccionario (p. ej. el genérico
+    #    «infraestructura» de «polideportivo») la inundarían.
+    marcadas = {r["codigo"] for r in cercanas + relacionadas}
+    escritos = [e for e in expandidos if e["origen"] == "escrito"]
+    descripcion = []                      # [(código, evidencia)]
+    for _, fila in df.iterrows():
+        if fila["est_n"] in marcadas or fila["est_n"] in restringidas:
+            continue
+        evs = [_ev(e, h) for e in escritos
+               if (h := _coincide(e["termino"], fila, usar_raiz, campos=_CAMPOS_DESC))]
+        if evs:
+            descripcion.append((fila["est_n"], evs))
 
     # Qué palabra disparó qué sinónimos, para mostrarlo tal cual en la interfaz.
     aplicados = {}
@@ -548,27 +596,57 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
         if e["origen"].startswith("diccionario: "):
             aplicados.setdefault(e["origen"][len("diccionario: "):], []).append(e["termino"])
 
-    def codigos(nivel):
-        return [r["codigo"] for r in resultados if r["nivel"] == nivel]
+    # Consulta muy amplia (p. ej. una sola palabra como «infraestructura»): se avisa y se
+    # ofrecen, tal cual están en el PND, las palabras clave que la concretan.
+    n_marcadas = len(cercanas) + len(relacionadas) + len(descripcion)
+    muy_amplia = len(cercanas) > MAX_CHAT or n_marcadas > MUCHOS_RESULTADOS
+    sugerencias = []
+    if muy_amplia:
+        coincidieron = sorted({ev["termino"] for r in cercanas + relacionadas
+                               for ev in r["coincidencias"] if ev["campo"] == "palabras clave"})
+        sugerencias = _sugerencias(cercanas + relacionadas, coincidieron)
 
     # Aviso sólo si la regla movió algo: una restringida que, sin la regla, habría
-    # llegado a Top 1 o Top 2.
+    # llegado a Más cercanas o Relacionadas.
     movidas = {r["codigo"] for r in resultados
-               if r["codigo"] in restringidas and mejor and r["score"] >= UMBRAL_TOP2 * mejor}
-    return {
+               if r["codigo"] in restringidas and mejor and r["score"] >= UMBRAL_RELACIONADAS * mejor}
+
+    coincidencias = {r["codigo"]: [{"termino": ev["termino"], "campo": ev["campo"]}
+                                   for ev in r["coincidencias"]] for r in cercanas + relacionadas}
+    for cod, evs in descripcion:
+        coincidencias[cod] = [{"termino": ev["termino"], "campo": ev["campo"]} for ev in evs]
+    por_codigo = {fila["est_n"]: fila for _, fila in df.iterrows()}
+
+    salida = {
         "terminos_buscados": [e["termino"] for e in expandidos],
         "terminos_del_diccionario": [e["termino"] for e in expandidos if e["origen"] != "escrito"],
         "sinonimos_aplicados": [{"palabra": k, "terminos": v} for k, v in aplicados.items()],
-        "n_resultados": len(resultados),
-        "n_top1": len(top1),
+        "n_resultados": n_marcadas,
+        "n_cercanas": len(cercanas),
+        "n_en_descripcion": len(descripcion),
+        "n_omitidas": sum(1 for r in resultados if r["nivel"] == "omitida"
+                          and r["codigo"] not in restringidas),
+        "muy_amplia": muy_amplia,
+        "sugerencias": sugerencias,
         "resultados": en_chat,
-        "niveles": {"top1": codigos("top1"), "top2": codigos("top2"), "top3": codigos("top3")},
-        "coincidencias": {r["codigo"]: [{"termino": ev["termino"], "campo": ev["campo"]}
-                                        for ev in r["coincidencias"]] for r in resultados},
+        "niveles": {"cercanas": [r["codigo"] for r in cercanas],
+                    "relacionadas": [r["codigo"] for r in relacionadas],
+                    "descripcion": [c for c, _ in descripcion]},
+        "coincidencias": coincidencias,
         "avisos_reglas": [nota for cods, nota in avisos if cods & movidas and nota],
-        "mensaje": ("Ninguna estrategia contiene esos términos."
-                    if not resultados else ""),
+        "mensaje": "",
     }
+    if not n_marcadas:
+        salida["mensaje"] = "Ninguna estrategia contiene esos términos."
+    elif not cercanas:
+        salida["mensaje"] = ("Ninguna estrategia coincide en sus palabras clave, su nombre ni su "
+                             "tema; estas mencionan el término en la descripción de su tema o eje.")
+        salida["en_descripcion"] = [
+            {"codigo": c, "estrategia": por_codigo[c]["est"],
+             "tema": f"{por_codigo[c]['tema_n']} {por_codigo[c]['tema']}",
+             "palabras_clave_cortas": por_codigo[c]["kw_cortas_lista"]}
+            for c, _ in descripcion[:MAX_CHAT]]
+    return salida
 
 
 def listar_vocabulario(fragmento: str = "", limite: int = 40) -> dict:
