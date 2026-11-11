@@ -101,9 +101,10 @@ Dos pequeños «i» explican en pantalla qué es el chat y qué significan Top 1
 Si la sugerencia está mal, se puede ver exactamente por qué.
 
 El buscador propio del árbol resalta lo que escribes y tiene el botón «Exacta» (sólo
-palabras completas; también funciona escribiendo entre comillas). La conversación del
-chat tiene su propio scroll, para que nunca alargue la página y deje el árbol fuera de
-vista.
+palabras completas; también funciona escribiendo entre comillas). Cuando la conversación del
+chat ya es larga, tiene su propio scroll para que no alargue la página y deje el árbol
+fuera de vista. El tema es siempre claro (`.streamlit/config.toml`), aunque el
+dispositivo esté en modo oscuro.
 
 ## Qué hace el modelo y qué no
 

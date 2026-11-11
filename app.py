@@ -35,7 +35,8 @@ st.set_page_config(page_title="Orientador del PND 2026-2030",
                    initial_sidebar_state="collapsed")
 
 ALTO_ARBOL = 760
-ALTO_CHAT = 560      # alto de la conversación; si es más larga, tiene su propio scroll
+ALTO_CHAT = 560      # alto de la conversación cuando ya es larga (entonces tiene su propio scroll)
+MENSAJES_PARA_SCROLL = 4   # con menos mensajes el recuadro se ajusta al contenido
 
 # ---------------------------------------------------------------------------
 # Estilos de la página (el árbol trae los suyos aparte)
@@ -330,7 +331,9 @@ def pintar_chat():
         return
 
     with zona:
-        caja = st.container(height=ALTO_CHAT, border=False)
+        largo = len(st.session_state.historial) >= MENSAJES_PARA_SCROLL
+        caja = (st.container(height=ALTO_CHAT, border=False) if largo
+                else st.container(border=False))
     with caja:
         pintar_historial()
         if pregunta:

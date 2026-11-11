@@ -490,8 +490,8 @@ document.getElementById("cerrar").onclick = () => {
 
 dibujar();
 
-/* Botones «Mostrar»: Todos, Top 1, Top 2, Top 3. Los niveles se pueden combinar y
-   «Todos» quita el filtro. Aparecen al lado de Plegar/Desplegar. */
+/* Botones «Mostrar»: Todos, Top 1, Top 2, Top 3. Se ve un solo grupo a la vez; pulsar de
+   nuevo el grupo activo, o «Todos», vuelve a mostrar todo. Van al lado de Plegar/Desplegar. */
 if(HAY_NIVELES){
   const grupo = document.createElement("div");
   grupo.className = "niveles";
@@ -510,8 +510,8 @@ if(HAY_NIVELES){
     const b = ev.target.closest("button[data-n]");
     if(!b) return;
     const n = b.dataset.n;
-    if(!n) FILTRO.clear();
-    else if(FILTRO.has(n)) FILTRO.delete(n); else FILTRO.add(n);
+    if(!n || FILTRO.has(n)) FILTRO.clear();
+    else { FILTRO.clear(); FILTRO.add(n); }
     pintarEstado();
     filtrar();
     const destino = document.querySelector(FILTRO.size ? ".est.senalada:not(.oculto)" : ".est.t1");

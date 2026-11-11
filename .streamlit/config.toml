@@ -1,0 +1,9 @@
+# Fuerza el tema claro: la página tiene su propio fondo claro y, sin esto, un
+# teléfono o navegador en modo oscuro mezcla texto claro sobre fondo claro.
+[theme]
+base = "light"
+primaryColor = "#1F4FD8"
+backgroundColor = "#FBFBFC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#15181D"
+font = "sans serif"

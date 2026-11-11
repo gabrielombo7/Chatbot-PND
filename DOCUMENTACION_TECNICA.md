@@ -171,7 +171,7 @@ modelo) y, sólo para la interfaz, `niveles`, `coincidencias` y
 `avisos_reglas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol
 marca todas en amarillo con su insignia, abre la ficha de las Top 1, resalta sus
 palabras clave que coincidieron (con la misma regla de raíz del buscador) y trae
-botones para ver sólo uno o varios niveles.
+botones para ver un nivel a la vez (o todos).
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
 capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin
