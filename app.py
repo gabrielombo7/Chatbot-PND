@@ -183,9 +183,9 @@ def incrustar(html, alto):
 
 def pintar_arbol():
     st.markdown('<div class="rotulo-col">Árbol del Plan' + tip(TIP_ARBOL) + '</div>'
-                '<p class="ayuda-col">Haz clic en una estrategia para ver sus '
-                'palabras clave y, si quieres, su descripción. El buscador de esta sección es '
-                'literal: encuentra la palabra sólo si está escrita igual.</p>',
+                '<p class="ayuda-col">Abre un eje o un tema para ver de qué trata, y haz clic '
+                'en una estrategia para ver sus palabras clave. El buscador de esta sección '
+                'es literal: encuentra la palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
     incrustar(arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
                            st.session_state.coincidencias), ALTO_ARBOL)
@@ -212,13 +212,6 @@ def pintar_notas(busquedas):
             notas.append(f"Sinónimos agregados a la búsqueda para «{a['palabra']}»: "
                          + ", ".join(a["terminos"]) + ".")
         notas += [n for n in b.get("avisos_reglas", []) if n not in notas]
-    en_desc = sorted({c["termino"] for b in busquedas
-                      for evs in b.get("coincidencias", {}).values()
-                      for c in evs if c["campo"] == "descripción"})
-    if en_desc:
-        notas.append("Sin coincidencia en palabras clave, nombre ni tema, estos términos se "
-                     "buscaron en la descripción como último recurso: "
-                     + ", ".join(f"«{t}»" for t in en_desc) + ".")
 
     ult = busquedas[-1]
     niv = ult.get("niveles") or {}
@@ -233,7 +226,7 @@ def pintar_notas(busquedas):
     notas.append(
         "Cómo se ordena: por cada término que coincide se suma el peso del campo "
         f"(palabras clave {pw['palabras clave']}, nombre {pw['nombre de la estrategia']}, "
-        f"tema {pw['tema']}, descripción {pw['descripción']}) × el origen del término "
+        f"tema {pw['tema']}) × el origen del término "
         "(×2 los de tu pregunta, ×1 los sinónimos) × su especificidad (un término que "
         "aparece en muchas estrategias vale menos). "
         f"Top 1: desde el {round(100 * B.UMBRAL_TOP1)} % del mejor puntaje; "

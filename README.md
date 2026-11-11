@@ -3,8 +3,8 @@
 Página que ayuda a ubicar una idea, un proyecto o un programa dentro de la
 estructura del Plan Nacional de Desarrollo: **eje → tema → estrategia**.
 
-Tiene dos secciones. A la izquierda, un visor del árbol con la descripción y las
-palabras clave de cada estrategia. A la derecha, un chat que traduce una pregunta
+Tiene dos secciones. A la izquierda, un visor del árbol con la descripción de cada
+eje y de cada tema y las palabras clave de cada estrategia. A la derecha, un chat que traduce una pregunta
 en lenguaje corriente a términos del documento y devuelve las estrategias donde
 esos términos aparecen. El chat se pliega hacia el lado para dejarle todo el
 ancho al árbol.
@@ -60,11 +60,11 @@ que coincide, se suma:
 - **Multiplicador de origen:** ×2 para los términos que llegan a la búsqueda (los de
   la persona y los que el modelo traduce); ×1 para los que agrega el diccionario.
 - **Especificidad:** un término que aparece en muchas estrategias dice poco. Vale
-  ln(total ÷ estrategias donde aparece): un término que está en 1 de las 123
-  estrategias vale 4,8; uno que está en 26 vale 1,6.
-- **La descripción es el último recurso:** sólo se mira para un término que no
-  apareció en ningún otro campo, y pesa 1. La ficha avisa con «Ver descripción · aquí
-  coincide».
+  ln(total ÷ estrategias donde aparece), contando como mínimo 3 estrategias para
+  que una sola palabra rara no domine: un término que está en 3 de las 122
+  estrategias vale 3,7; uno que está en 26 vale 1,5.
+- **Las estrategias no tienen descripción:** sólo palabras clave. Las descripciones y
+  las palabras clave de eje y tema se muestran en el árbol, pero no puntúan.
 
 Ese score lo calcula `buscador.py`, no el modelo: el modelo sólo elige los términos
 de búsqueda.
@@ -92,7 +92,7 @@ apunta a algo que no existe, la aplicación avisa al arrancar.
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
 interfaz la muestra. La respuesta del chat trae las Top 1 y, debajo, el desplegable
 «Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas que
-actuaron, términos buscados en la descripción como último recurso, cuántas
+actuaron, cuántas
 estrategias coincidieron y cómo se calcula el orden. En el árbol, todas las que
 coincidieron se marcan en amarillo con su insignia; después de cada respuesta baja a
 la Top 1, que se abre sola con sus palabras clave resaltadas, y los botones
@@ -125,9 +125,12 @@ poner un tope de gasto en la consola de Anthropic.
 
 **Cuando cambie la estructura:** reemplaza
 `data/Estructura_PND_Palabras_claves.xlsx` por la versión nueva y reinicia la
-aplicación. No hay nada codificado a mano: los ejes, los temas, las estrategias y
-las palabras clave se leen del archivo. Debe conservar las mismas 9 columnas en el
-mismo orden; si no, la aplicación avisa al arrancar en vez de fallar en silencio.
+aplicación. Se leen tres hojas por nombre: `VF_Ejes` (eje, descripción), `VF_Temas`
+(tema, descripción, palabras clave) y `VF_Estructura` (estrategia, palabras clave de 4 a
+10 y «cortas» de hasta 5). No hay nada codificado a mano, ni siquiera cuántos ejes,
+temas o estrategias hay. Al arrancar se valida que todo cuadre (que cada tema exista,
+que los códigos encajen, 4–10 palabras clave, descripciones completas…) y, si algo
+falla, la aplicación lo dice con un mensaje claro en vez de fallar en silencio.
 
 **Cuando una búsqueda no encuentre algo que debería:** casi siempre es que falta
 una fila en `data/sinonimos.csv`. Se abre en Excel, se agrega la palabra corriente
@@ -144,6 +147,7 @@ de comprobarlo es buscar la palabra en el buscador del árbol, que es literal.
   estructura y palabras clave. El análisis de la matriz de iniciativas está en
   `analisis_iniciativas/`.
 - No pondera, no decide ni recomienda. Describe dónde aparecen las palabras.
-- La estructura del PND todavía está en elaboración; 17 de las 123 estrategias
-  aún no tienen descripción propia y en esas la búsqueda depende de las palabras
-  clave y del nombre.
+- Los códigos de estrategia de esta versión **no son los de versiones anteriores**
+  (se reutilizaron y renumeraron); lo que se enlace a la estructura, como los
+  indicadores, debe usar los códigos nuevos. La columna «Código anterior» del libro
+  sirve sólo para una migración puntual.

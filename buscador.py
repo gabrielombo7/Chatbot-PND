@@ -12,13 +12,12 @@ cada una:
                            palabras de uso corriente al vocabulario del documento
                            ("colegio" -> "infraestructura educativa").
 
-Se busca en tres campos: palabras clave, nombre de la estrategia y tema. La
-descripción es el último recurso: sólo se mira para un término que no apareció en
-ningún otro campo.
+Se busca en tres campos: palabras clave, nombre de la estrategia y nombre del tema. La
+estrategia no tiene descripción; las descripciones de eje y tema sólo se muestran.
 
 El orden sale de un score que se explica en una línea: por cada término que coincide,
 peso del campo x multiplicador de origen x especificidad del término (un término que
-aparece en muchas estrategias vale poco). Lo calcula esta función, no el modelo: el
+aparece en muchas estrategias vale poco; uno muy raro no pasa de cierto tope). Lo calcula esta función, no el modelo: el
 modelo sólo elige los términos. Los niveles (Top 1 / Top 2 / Top 3) son umbrales sobre
 ese score, relativos al mejor. data/reglas.csv restringe grupos de estrategias (p. ej.
 el eje 7, sólo para desastres) a las preguntas que mencionen sus palabras disparadoras.
@@ -39,14 +38,16 @@ ARCHIVO_ESTRUCTURA = DATA / "Estructura_PND_Palabras_claves.xlsx"
 ARCHIVO_SINONIMOS = DATA / "sinonimos.csv"
 ARCHIVO_REGLAS = DATA / "reglas.csv"
 
-# Peso de cada campo: el orden de preferencia declarado. La descripción pesa poco y
-# sólo entra como último recurso, para términos que no están en ningún otro campo.
+# Peso de cada campo: el orden de preferencia declarado.
 PESO_CAMPO = {
     "palabras clave": 4,
     "nombre de la estrategia": 4,
     "tema": 3,
-    "descripción": 1,
 }
+
+# Un término que aparece en menos estrategias que esto cuenta como si apareciera en
+# tantas: evita que una sola palabra rara (p. ej. un homónimo) domine el resultado.
+MIN_ESTRATEGIAS_ESPECIFICIDAD = 3
 
 # Niveles, como fracción del mejor score. Se ajustan aquí, sin tocar lo demás.
 UMBRAL_TOP1 = 0.80       # >= 80 % del mejor (los empates con el mejor siempre entran)
@@ -109,47 +110,165 @@ def palabras_utiles(texto: str) -> list:
 _EST = None
 _SIN = None
 
-COLUMNAS = ["eje_n", "eje", "tema_n", "tema", "est_n", "est", "desc", "kw", "fuente"]
+HOJA_EJES, HOJA_TEMAS, HOJA_ESTRATEGIAS = "VF_Ejes", "VF_Temas", "VF_Estructura"
+COL_EJES = ["Número del eje", "Nombre del eje", "Descripción del eje"]
+COL_TEMAS = ["Número del tema", "Número del eje", "Nombre del tema",
+             "Descripción del tema", "Palabras clave del tema"]
+COL_ESTRATEGIAS = ["Número de la estrategia", "Número del tema", "Nombre de la estrategia",
+                   "Palabras clave (4 a 10)", "Palabras clave cortas (máx. 5)"]
+
+_TABLAS = None
+
+
+def _lista(texto) -> list:
+    return [p.strip() for p in str(texto).split(";") if p.strip()]
+
+
+def _clave_codigo(codigo: str) -> tuple:
+    return tuple(int(p) if p.isdigit() else 0 for p in str(codigo).split("."))
+
+
+def _hoja(nombre: str, obligatorias: list) -> pd.DataFrame:
+    try:
+        t = pd.read_excel(ARCHIVO_ESTRUCTURA, sheet_name=nombre, dtype=str)
+    except ValueError:
+        raise ValueError(
+            f"El archivo de estructura no tiene la hoja «{nombre}». Debe ser la versión "
+            f"final, con las hojas {HOJA_EJES}, {HOJA_TEMAS} y {HOJA_ESTRATEGIAS}.")
+    t.columns = [str(c).strip() for c in t.columns]
+    faltan = [c for c in obligatorias if c not in t.columns]
+    if faltan:
+        raise ValueError(f"La hoja «{nombre}» no tiene las columnas: {', '.join(faltan)}.")
+    t = t.fillna("").apply(lambda col: col.astype(str).str.strip())
+    return t[t[obligatorias[0]] != ""].reset_index(drop=True)
+
+
+def _validar_estructura(ejes, temas, est) -> None:
+    """Integridad de eje -> tema -> estrategia. Junta todos los problemas en un solo
+    mensaje, para corregir el Excel de una vez."""
+    p = []
+    for nombre, tabla, col in ((HOJA_EJES, ejes, "Número del eje"),
+                               (HOJA_TEMAS, temas, "Número del tema"),
+                               (HOJA_ESTRATEGIAS, est, "Número de la estrategia")):
+        rep = sorted(tabla[col][tabla[col].duplicated()].unique())
+        if rep:
+            p.append(f"{nombre}: códigos repetidos {rep}")
+    nombres_eje = dict(zip(ejes["Número del eje"], ejes["Nombre del eje"]))
+    nombres_tema = dict(zip(temas["Número del tema"], temas["Nombre del tema"]))
+
+    for _, r in temas.iterrows():
+        t, e = r["Número del tema"], r["Número del eje"]
+        if e not in nombres_eje:
+            p.append(f"Tema {t}: el eje «{e}» no existe en {HOJA_EJES}")
+        elif not t.startswith(e + "."):
+            p.append(f"Tema {t}: su código no empieza por el del eje {e}")
+        if not r["Descripción del tema"]:
+            p.append(f"Tema {t}: falta la descripción")
+    for _, r in ejes.iterrows():
+        if not r["Descripción del eje"]:
+            p.append(f"Eje {r['Número del eje']}: falta la descripción")
+
+    cuenta = est["Número del tema"].value_counts()
+    for _, e in est.iterrows():
+        c, t = e["Número de la estrategia"], e["Número del tema"]
+        if t not in nombres_tema:
+            p.append(f"Estrategia {c}: el tema «{t}» no existe en {HOJA_TEMAS}")
+            continue
+        if not c.startswith(t + "."):
+            p.append(f"Estrategia {c}: su código no empieza por el del tema {t}")
+        kw, cortas = _lista(e["Palabras clave (4 a 10)"]), _lista(e["Palabras clave cortas (máx. 5)"])
+        if not 4 <= len(kw) <= 10:
+            p.append(f"Estrategia {c}: tiene {len(kw)} palabras clave (deben ser de 4 a 10)")
+        if not 1 <= len(cortas) <= 5:
+            p.append(f"Estrategia {c}: tiene {len(cortas)} palabras clave cortas (de 1 a 5)")
+        if len({normalizar(k) for k in kw}) < len(kw):
+            p.append(f"Estrategia {c}: palabras clave repetidas")
+    for col_n, col_nombre, nombres in (("Número del eje", "Nombre del eje", nombres_eje),
+                                       ("Número del tema", "Nombre del tema", nombres_tema)):
+        if col_n in est.columns and col_nombre in est.columns:
+            mal = est[[col_n, col_nombre]].drop_duplicates()
+            for n_, nom in zip(mal[col_n], mal[col_nombre]):
+                if nombres.get(n_) not in (None, nom):
+                    p.append(f"{HOJA_ESTRATEGIAS}: el nombre de «{n_}» difiere del de la otra hoja")
+    if "Número de estrategias" in temas.columns:
+        for t, n_ in zip(temas["Número del tema"], temas["Número de estrategias"]):
+            if n_.isdigit() and int(n_) != int(cuenta.get(t, 0)):
+                p.append(f"Tema {t}: dice {n_} estrategias y hay {int(cuenta.get(t, 0))}")
+    if p:
+        raise ValueError(f"La estructura tiene {len(p)} problema(s):\n- " + "\n- ".join(p[:15])
+                         + ("\n- …" if len(p) > 15 else ""))
 
 
 def cargar_estructura() -> pd.DataFrame:
-    """Lee el Excel de estructura. Si el archivo se reemplaza por una versión
-    nueva, basta reiniciar la aplicación: no hay nada codificado a mano."""
-    global _EST
+    """Lee el libro de estructura (hojas VF_Ejes, VF_Temas y VF_Estructura) y devuelve
+    una fila por estrategia, con su eje y su tema ya unidos, lista para buscar y para el
+    árbol. La estrategia sólo tiene palabras clave: no tiene descripción. Las tres
+    tablas originales (para el tablero y los indicadores) salen de cargar_tablas().
+
+    Si el archivo se reemplaza por una versión nueva, basta reiniciar la aplicación: no
+    hay nada codificado a mano, y si algo no cuadra se avisa al arrancar."""
+    global _EST, _TABLAS
     if _EST is not None:
         return _EST
 
-    df = pd.read_excel(ARCHIVO_ESTRUCTURA)
-    if len(df.columns) < 9:
-        raise ValueError(
-            f"El archivo de estructura tiene {len(df.columns)} columnas y se esperaban 9. "
-            "Revisa que sea el archivo correcto."
-        )
-    df = df.iloc[:, :9].copy()
-    df.columns = COLUMNAS
-    df = df[df["est_n"].notna()].reset_index(drop=True)
+    ejes = _hoja(HOJA_EJES, COL_EJES)
+    temas = _hoja(HOJA_TEMAS, COL_TEMAS)
+    est = _hoja(HOJA_ESTRATEGIAS, COL_ESTRATEGIAS)
+    _validar_estructura(ejes, temas, est)
 
-    df["eje_n"] = pd.to_numeric(df["eje_n"], errors="coerce").astype("Int64")
-    for c in ["eje", "tema", "est", "desc", "kw", "fuente", "tema_n", "est_n"]:
-        df[c] = df[c].fillna("").astype(str).str.strip()
+    e_nom = dict(zip(ejes["Número del eje"], ejes["Nombre del eje"]))
+    e_des = dict(zip(ejes["Número del eje"], ejes["Descripción del eje"]))
+    t_fila = {r["Número del tema"]: r for _, r in temas.iterrows()}
+    ant = est["Código anterior"] if "Código anterior" in est.columns else [""] * len(est)
 
-    df["kw_lista"] = df["kw"].apply(
-        lambda s: [p.strip() for p in s.split(";") if p.strip()]
-    )
+    filas = []
+    for (_, r), anterior in zip(est.iterrows(), ant):
+        t = t_fila[r["Número del tema"]]
+        e = t["Número del eje"]
+        filas.append({
+            "eje_n": int(e), "eje": e_nom[e], "eje_desc": e_des[e],
+            "tema_n": t["Número del tema"], "tema": t["Nombre del tema"],
+            "tema_desc": t["Descripción del tema"], "tema_kw_lista": _lista(t["Palabras clave del tema"]),
+            "est_n": r["Número de la estrategia"], "est": r["Nombre de la estrategia"],
+            "kw": r["Palabras clave (4 a 10)"], "kw_lista": _lista(r["Palabras clave (4 a 10)"]),
+            "kw_cortas_lista": _lista(r["Palabras clave cortas (máx. 5)"]),
+            "codigo_anterior": anterior,
+        })
+    df = pd.DataFrame(filas)
+    df["eje_n"] = df["eje_n"].astype("Int64")
+    df = df.sort_values("est_n", key=lambda s: s.map(_clave_codigo)).reset_index(drop=True)
 
     # Texto normalizado por campo, calculado una sola vez.
     df["_kw"] = df["kw"].map(normalizar)
     df["_est"] = df["est"].map(normalizar)
     df["_tema"] = df["tema"].map(normalizar)
-    df["_desc"] = df["desc"].map(normalizar)
 
     # Conjunto de raíces por campo, para la capa 2.
-    for destino, origen in [("_r_kw", "_kw"), ("_r_est", "_est"),
-                            ("_r_tema", "_tema"), ("_r_desc", "_desc")]:
+    for destino, origen in [("_r_kw", "_kw"), ("_r_est", "_est"), ("_r_tema", "_tema")]:
         df[destino] = df[origen].apply(lambda t: {raiz(w) for w in t.split() if len(w) >= 4})
 
+    _TABLAS = {
+        "ejes": pd.DataFrame({"eje_id": ejes["Número del eje"], "nombre": ejes["Nombre del eje"],
+                              "descripcion": ejes["Descripción del eje"],
+                              "temas_clave": ejes["Temas clave"] if "Temas clave" in ejes.columns else ""}),
+        "temas": pd.DataFrame({"tema_id": temas["Número del tema"], "eje_id": temas["Número del eje"],
+                               "nombre": temas["Nombre del tema"], "descripcion": temas["Descripción del tema"],
+                               "palabras_clave": temas["Palabras clave del tema"].map(_lista)}),
+        "estrategias": pd.DataFrame({"estrategia_id": df["est_n"], "tema_id": df["tema_n"],
+                                     "eje_id": df["eje_n"].astype(str), "nombre": df["est"],
+                                     "palabras_clave": df["kw_lista"],
+                                     "palabras_clave_cortas": df["kw_cortas_lista"],
+                                     "codigo_anterior": df["codigo_anterior"]}),
+    }
     _EST = df
     return _EST
+
+
+def cargar_tablas() -> dict:
+    """Las tres tablas normalizadas (ejes, temas, estrategias), con llaves por código,
+    para el tablero y los indicadores. Los indicadores se enlazan por estrategia_id."""
+    cargar_estructura()
+    return _TABLAS
 
 
 def cargar_sinonimos() -> dict:
@@ -225,10 +344,9 @@ _CAMPOS = [
     ("nombre de la estrategia", "_est", "_r_est"),
     ("tema", "_tema", "_r_tema"),
 ]
-_CAMPO_DESC = ("descripción", "_desc", "_r_desc")   # sólo como último recurso
 
 
-def _coincide(termino: str, fila, usar_raiz: bool, campos=_CAMPOS):
+def _coincide(termino: str, fila, usar_raiz: bool):
     """¿Aparece el término en esta estrategia? Devuelve (campo, tipo) o None.
 
     Recorre los campos en orden de peso y devuelve la primera coincidencia,
@@ -239,7 +357,7 @@ def _coincide(termino: str, fila, usar_raiz: bool, campos=_CAMPOS):
         return None
 
     # Capa 1: literal. Si el término es una frase, debe aparecer completa.
-    for nombre, campo, _ in campos:
+    for nombre, campo, _ in _CAMPOS:
         if termino in fila[campo]:
             return nombre, "literal"
 
@@ -250,7 +368,7 @@ def _coincide(termino: str, fila, usar_raiz: bool, campos=_CAMPOS):
     objetivo = {raiz(w) for w in palabras if len(w) >= 4}
     if not objetivo:
         return None
-    for nombre, _, campo_raices in campos:
+    for nombre, _, campo_raices in _CAMPOS:
         if objetivo <= fila[campo_raices]:
             return nombre, "raíz"
     return None
@@ -259,16 +377,6 @@ def _coincide(termino: str, fila, usar_raiz: bool, campos=_CAMPOS):
 # ---------------------------------------------------------------------------
 # Búsqueda principal (esta es la herramienta que llama el modelo)
 # ---------------------------------------------------------------------------
-def _extracto(desc: str, n: int = 280) -> str:
-    """Comienzo de la descripción, cortado en un punto si se puede. Es texto
-    literal del documento: de aquí sale lo que el modelo resume."""
-    d = " ".join(str(desc).split())
-    if len(d) <= n:
-        return d
-    corte = d.rfind(". ", 0, n)
-    return d[:corte + 1] if corte > n // 2 else d[:n].rstrip() + "…"
-
-
 _REGLAS = None
 
 
@@ -380,22 +488,13 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
             if h:
                 filas.setdefault(idx, (fila, []))[1].append(_ev(e, h))
 
-    # 1b) Último recurso: un término que no apareció en ningún campo anterior se
-    #     busca en las descripciones.
-    encontrados = {ev["termino"] for _, evs in filas.values() for ev in evs}
-    for e in expandidos:
-        if e["termino"] in encontrados:
-            continue
-        for idx, fila in df.iterrows():
-            h = _coincide(e["termino"], fila, usar_raiz, campos=[_CAMPO_DESC])
-            if h:
-                filas.setdefault(idx, (fila, []))[1].append(_ev(e, h))
-
     # 2) Especificidad: un término que aparece en muchas estrategias dice poco.
-    #    vale ln(total / estrategias donde aparece): 1 de 123 -> 4.8; 26 de 123 -> 1.6.
+    #    vale ln(total / estrategias donde aparece), contando como mínimo
+    #    MIN_ESTRATEGIAS_ESPECIFICIDAD: 3 de 122 -> 3.7; 26 de 122 -> 1.5.
     n_total = len(df)
     n_por_termino = Counter(ev["termino"] for _, evs in filas.values() for ev in evs)
-    especificidad = {t: math.log(n_total / n) for t, n in n_por_termino.items()}
+    especificidad = {t: math.log(n_total / max(n, MIN_ESTRATEGIAS_ESPECIFICIDAD))
+                     for t, n in n_por_termino.items()}
 
     # 3) Score = suma, por cada término que coincide, de
     #    peso del campo x multiplicador del origen x especificidad.
@@ -409,8 +508,7 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
             "eje": f"{fila['eje_n']}. {fila['eje']}",
             "tema": f"{fila['tema_n']} {fila['tema']}".strip(),
             "palabras_clave": fila["kw_lista"],
-            "tiene_descripcion": bool(fila["desc"]),
-            "extracto": _extracto(fila["desc"]),
+            "palabras_clave_cortas": fila["kw_cortas_lista"],
             "n_terminos_coincidentes": len({ev["termino"] for ev in evidencia}),
             "score": round(score, 3),
             "coincidencias": evidencia,
@@ -501,8 +599,8 @@ def detalle_estrategia(codigo: str) -> dict:
     return {
         "codigo": r["est_n"], "estrategia": r["est"],
         "eje": f"{r['eje_n']}. {r['eje']}", "tema": f"{r['tema_n']} {r['tema']}".strip(),
-        "descripcion": r["desc"] or "(esta estrategia no tiene descripción en el archivo)",
-        "palabras_clave": r["kw_lista"], "fuente": r["fuente"],
+        "palabras_clave": r["kw_lista"], "palabras_clave_cortas": r["kw_cortas_lista"],
+        "descripcion_del_tema": r["tema_desc"],
     }
 
 

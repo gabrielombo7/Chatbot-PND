@@ -36,13 +36,13 @@ def construir_datos(df) -> list:
         for (tema_n, tema_nom), g_tema in g_eje.groupby(["tema_n", "tema"], sort=True):
             temas.append({
                 "num": str(tema_n), "nombre": tema_nom,
+                "desc": g_tema["tema_desc"].iloc[0], "kw": g_tema["tema_kw_lista"].iloc[0],
                 "estrategias": [{
-                    "cod": r["est_n"], "nombre": r["est"],
-                    "desc": r["desc"], "kw": r["kw_lista"],
+                    "cod": r["est_n"], "nombre": r["est"], "kw": r["kw_lista"],
                 } for _, r in g_tema.iterrows()],
             })
         ejes.append({
-            "num": int(eje_n), "nombre": eje_nom,
+            "num": int(eje_n), "nombre": eje_nom, "desc": g_eje["eje_desc"].iloc[0],
             "color": COLOR_EJE.get(int(eje_n), COLOR_POR_DEFECTO),
             "temas": temas,
             "n_est": int(len(g_eje)),
@@ -85,12 +85,11 @@ PLANTILLA = """<!DOCTYPE html>
   .niveles{display:flex;gap:6px;align-items:center;margin-left:6px;padding-left:12px;
     border-left:1px solid var(--regla)}
   .niveles .rot{font-size:12.5px;color:var(--tenue)}
-  button.ctrl[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
-  button.ctrl .n{opacity:.7;font-variant-numeric:tabular-nums}
-  button.vertodo.coincide{background:var(--marca);border-radius:5px;padding:4px 8px;
-    box-shadow:inset 0 0 0 1px var(--marca-borde);color:#6B4F00}  button.ctrl{font:inherit;font-size:13.5px;color:var(--suave);background:#fff;
+  button.ctrl{font:inherit;font-size:13.5px;color:var(--suave);background:#fff;
     border:1px solid var(--regla);border-radius:7px;padding:8px 13px;cursor:pointer;
     transition:background .13s,color .13s,border-color .13s}
+  button.ctrl[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+  button.ctrl .n{opacity:.7;font-variant-numeric:tabular-nums}
   button.ctrl:hover{background:#F2F4F7;color:var(--tinta)}
   button.ctrl:focus-visible,summary:focus-visible,.est:focus-visible{
     outline:2px solid var(--realce);outline-offset:2px}
@@ -153,20 +152,12 @@ PLANTILLA = """<!DOCTYPE html>
     font-weight:600;line-height:1.32}
   .ficha .ruta{font-size:12.5px;color:var(--tenue);margin:0 0 11px;
     line-height:1.45}
-  /* La descripción queda recogida hasta que se pide con el botón. */
-  button.vertodo{font:inherit;font-size:13px;font-weight:500;color:var(--realce);
-    background:none;border:0;padding:4px 0;margin:2px 0 0;cursor:pointer;
-    display:inline-flex;align-items:center;gap:6px}
-  button.vertodo:hover{text-decoration:underline}
-  button.vertodo .flecha{margin-top:0;color:currentColor}
-  button.vertodo[aria-expanded=true] .flecha{transform:rotate(90deg)}
-  .desc{display:none;margin:8px 0 2px;padding-top:10px;border-top:1px solid var(--regla)}
-  .desc.abierta{display:block}
-  .desc p{margin:0;font-family:var(--serif);font-size:15px;line-height:1.62;
-    max-width:68ch;color:#262B33;white-space:pre-line}
-  .ficha .vacio{font-family:var(--sans);font-size:13.5px;color:var(--tenue);
-    font-style:normal;background:#F7F8FA;padding:9px 12px;border-radius:6px;
-    max-width:68ch}
+  /* Descripción de eje y tema: texto de apoyo, visible al abrirlos. */
+  .eje-desc{margin:2px 0 12px;font-size:13.5px;line-height:1.55;color:var(--suave);max-width:76ch}
+  .tema-desc{margin:4px 0 6px;padding-left:41px;font-size:13px;line-height:1.5;
+    color:var(--suave);max-width:80ch}
+  .tema-kw{margin:0 0 8px;padding-left:41px;display:flex;flex-wrap:wrap;gap:5px}
+  .tema-kw .chip{font-size:11.5px;background:#fff;box-shadow:inset 0 0 0 1px var(--regla);color:var(--suave)}
   .rotulo{font-size:12px;color:var(--suave);font-weight:500;margin:0 0 6px}
   .chips{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 6px}
   .chip{font-size:12.5px;background:#F2F4F7;color:#333A45;border-radius:5px;
@@ -276,22 +267,10 @@ function chipCoincide(k, terminosKw){
 function ficha(e, color){
   const co = COINC[e.cod] || [];
   const terminosKw = co.filter(c => c.campo === "palabras clave").map(c => c.termino);
-  const enDesc = co.some(c => c.campo === "descripción");
-  const extra = enDesc ? " · aquí coincide" : "";
-  const desc = e.desc
-    ? '<button class="vertodo' + (enDesc ? ' coincide' : '') + '" type="button" aria-expanded="false"'
-      + ' data-extra="' + extra + '">' + FLECHA
-      + '<span class="vertodo-txt">Ver descripción' + extra + '</span></button>'
-      + '<div class="desc"><p data-raw="' + esc(e.desc) + '">' + resaltar(e.desc, TERMINOS) + '</p></div>'
-    : '<p class="vacio">Esta estrategia aparece en el árbol sin descripción propia.'
-      + (e.kw.length ? ' Las palabras clave son la única referencia disponible.' : '') + '</p>';
-  const chips = e.kw.length
-    ? '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k =>
+  const chips = '<p class="rotulo">Palabras clave</p><div class="chips">' + e.kw.map(k =>
         '<span class="chip' + (chipCoincide(k, terminosKw) ? ' coincide' : '') + '" data-raw="'
-        + esc(k) + '">' + esc(k) + '</span>').join("") + '</div>'
-    : "";
-  return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">'
-    + chips + desc + '</div>';
+        + esc(k) + '">' + esc(k) + '</span>').join("") + '</div>';
+  return '<div class="ficha" id="f-' + esc(e.cod) + '" style="--c:' + color + '">' + chips + '</div>';
 }
 
 function dibujar(){
@@ -302,7 +281,7 @@ function dibujar(){
         const nivel = NIVEL[e.cod];
         return '<div class="est' + (nivel?' senalada '+nivel:'') + '" role="button" tabindex="0"'
           + ' aria-expanded="false" data-cod="' + esc(e.cod) + '"'
-          + ' data-buscar="' + esc(sinTildes(e.cod+" "+e.nombre+" "+t.nombre+" "+e.kw.join(" ")+" "+(e.desc||""))) + '">'
+          + ' data-buscar="' + esc(sinTildes(e.cod+" "+e.nombre+" "+t.nombre+" "+e.kw.join(" "))) + '">'
           + '<span class="est-cod">' + esc(e.cod) + '</span>'
           + '<span class="est-nom" data-raw="' + esc(e.nombre) + '">' + resaltar(e.nombre, TERMINOS) + '</span>'
           + (nivel ? '<span class="insignia ' + nivel + '">' + ROTULO[nivel] + '</span>' : "")
@@ -313,12 +292,15 @@ function dibujar(){
         + '<span class="tema-num">' + esc(t.num) + '</span>'
         + '<span class="tema-nom" data-raw="' + esc(t.nombre) + '">' + resaltar(t.nombre, TERMINOS) + '</span>'
         + '<span class="tema-cnt">' + n + '</span></summary>'
+        + (t.desc ? '<p class="tema-desc">' + esc(t.desc) + '</p>' : '')
+        + (t.kw.length ? '<div class="tema-kw">' + t.kw.map(k => '<span class="chip">' + esc(k) + '</span>').join("") + '</div>' : '')
         + '<div class="lista">' + ests + '</div></details>';
     }).join("");
     partes.push('<details class="eje" style="--c:' + eje.color + '"><summary>' + FLECHA
       + '<span class="eje-num">' + eje.num + '</span>'
       + '<span class="eje-nom" data-raw="' + esc(eje.nombre) + '">' + resaltar(eje.nombre, TERMINOS) + '</span>'
       + '<span class="eje-cnt">' + eje.n_est + ' estrategias</span></summary>'
+      + (eje.desc ? '<p class="eje-desc">' + esc(eje.desc) + '</p>' : '')
       + temas + '</details>');
   }
   document.getElementById("arbol").innerHTML = partes.join("");
@@ -331,14 +313,6 @@ function alternar(el){
   el.setAttribute("aria-expanded", abierta ? "true" : "false");
 }
 document.getElementById("arbol").addEventListener("click", ev => {
-  const ver = ev.target.closest("button.vertodo");
-  if(ver){
-    const abierta = ver.nextElementSibling.classList.toggle("abierta");
-    ver.setAttribute("aria-expanded", abierta ? "true" : "false");
-    ver.querySelector(".vertodo-txt").textContent =
-      (abierta ? "Ocultar descripción" : "Ver descripción") + (ver.dataset.extra || "");
-    return;
-  }
   const el = ev.target.closest(".est");
   if(el) alternar(el);
 });
@@ -375,35 +349,21 @@ function contiene(texto, t, exacto){
   }
   return false;
 }
-const AUTO = [];   /* fichas/descripciones que abrió la búsqueda, para cerrarlas al cambiarla */
+const AUTO = [];   /* fichas que abrió la búsqueda, para cerrarlas al cambiarla */
 
 function cerrarAuto(){
-  AUTO.splice(0).forEach(([tipo, e]) => {
-    const f = document.getElementById("f-" + e.dataset.cod);
-    if(tipo === "f"){ f.classList.remove("abierta"); e.setAttribute("aria-expanded","false"); }
-    else {
-      const b = f.querySelector(".vertodo");
-      f.querySelector(".desc").classList.remove("abierta");
-      b.setAttribute("aria-expanded","false");
-      b.querySelector(".vertodo-txt").textContent = "Ver descripción" + (b.dataset.extra || "");
-    }
+  AUTO.splice(0).forEach(e => {
+    document.getElementById("f-" + e.dataset.cod).classList.remove("abierta");
+    e.setAttribute("aria-expanded","false");
   });
 }
 
-/* Con pocas coincidencias se abre la ficha (palabras clave resaltadas) y, si la palabra
-   está en la descripción, también la descripción. */
-function abrirAuto(t, exacto){
+/* Con pocas coincidencias se abre la ficha, para ver las palabras clave resaltadas. */
+function abrirAuto(){
   document.querySelectorAll(".est:not(.oculto)").forEach(e => {
     const f = document.getElementById("f-" + e.dataset.cod);
     if(!f.classList.contains("abierta")){
-      f.classList.add("abierta"); e.setAttribute("aria-expanded","true"); AUTO.push(["f", e]);
-    }
-    const d = f.querySelector(".desc"), b = f.querySelector(".vertodo");
-    if(d && b && !d.classList.contains("abierta")
-       && contiene(sinTildes(d.querySelector("p").dataset.raw || ""), t, exacto)){
-      d.classList.add("abierta"); b.setAttribute("aria-expanded","true");
-      b.querySelector(".vertodo-txt").textContent = "Ocultar descripción" + (b.dataset.extra || "");
-      AUTO.push(["d", e]);
+      f.classList.add("abierta"); e.setAttribute("aria-expanded","true"); AUTO.push(e);
     }
   });
 }
@@ -434,7 +394,7 @@ function filtrar(){
         : resaltar(el.dataset.raw, base.concat([t]));
     });
   }
-  if(t && visibles <= 8) abrirAuto(t, exacto);
+  if(t && visibles <= 8) abrirAuto();
 
   document.querySelectorAll("details.tema").forEach(d => {
     const hay = d.querySelectorAll(".est:not(.oculto)").length;

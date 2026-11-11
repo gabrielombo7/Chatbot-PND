@@ -12,7 +12,8 @@ Públicas) como ejercicio preliminar y sencillo — esto **orienta**, no define.
 
 Dos secciones:
 - **Árbol** — visor plegable de la estructura completa, con buscador propio
-  (literal) y fichas con descripción y palabras clave de cada estrategia.
+  (literal), descripción de cada eje y tema, y fichas con las palabras clave de cada
+  estrategia (las estrategias no tienen descripción).
 - **Chat** — la persona describe su idea en lenguaje corriente; el asistente
   traduce eso a términos del documento, busca por coincidencia de palabras y
   devuelve las estrategias donde esos términos aparecen, con la evidencia de
@@ -139,13 +140,15 @@ Todo es comparación de texto, en tres capas, cada una explicable en una frase:
   de términos de la derecha separados por `;`.
 
 El **orden de los resultados** sale de un score declarado, no aprendido (función
-`buscar_estrategias`). Se busca en palabras clave, nombre de la estrategia y tema; la
-descripción es el último recurso (sólo para un término que no apareció en ningún otro
-campo, con peso 1). Por cada término que coincide se suma: peso del campo
+`buscar_estrategias`). Se busca en palabras clave, nombre de la estrategia y nombre del
+tema; las descripciones de eje y tema y las palabras clave del tema sólo se muestran
+(sumarlas solo añadía ruido). Por cada término que coincide se suma: peso del campo
 (`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen (×2 los términos
 que llegan a la herramienta, ×1 los que agrega el diccionario de sinónimos) ×
 especificidad (ln(total ÷ estrategias donde aparece el término): un término frecuente
-como «infraestructura», en 26 de 123 estrategias, vale poco).
+como «infraestructura», en 26 de 122 estrategias, vale poco). Un término que aparece
+en menos de 3 estrategias cuenta como si apareciera en 3 (`MIN_ESTRATEGIAS_ESPECIFICIDAD`),
+para que una sola palabra rara no domine; no resuelve los homónimos (ver sección 8).
 
 El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a partir
 de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
@@ -189,9 +192,9 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 |---|---|
 | `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, el expander "Notas" (sinónimos, reglas, totales y cómo se ordena, generado desde las constantes de `buscador.py`) y los tooltips de ayuda (CSS, sin JavaScript). |
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.iframe`, o con `st.components.v1.html` en versiones antiguas de Streamlit). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
-| `buscador.py` | **El corazón del proyecto.** Carga el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
+| `buscador.py` | **El corazón del proyecto.** Carga y valida el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |
-| `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad. 9 columnas: número/nombre de eje, número/nombre de tema, número/nombre de estrategia, descripción, palabras clave, fuente. Se lee directo; si cambia la estructura, se reemplaza este archivo y se reinicia la app — no hay nada codificado a mano. |
+| `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad, versión final. Tres hojas por nombre: `VF_Ejes` (descripción), `VF_Temas` (descripción y palabras clave) y `VF_Estructura` (estrategia, palabras clave 4–10 y «cortas» ≤5, código anterior). Las otras hojas del libro se ignoran. `buscador.cargar_estructura()` las valida y las une en una fila por estrategia; `cargar_tablas()` devuelve las tres tablas con llaves por código (para el tablero y los indicadores). Si cambia la estructura, se reemplaza este archivo y se reinicia la app. |
 | `data/sinonimos.csv` | El diccionario de la capa 3. Columnas: `palabra`, `terminos_documento` (separados por `;`), `nota`. ~110 filas ya verificadas contra el Excel (cada término de destino existe de verdad en el documento). |
 | `requirements.txt` | `streamlit`, `anthropic`, `pandas`, `openpyxl`. |
 | `.streamlit/config.toml` | Tema visual (colores, tipografía). |
@@ -264,3 +267,16 @@ Pasos, en orden:
   humana antes de usarse para enriquecer el árbol con iniciativas reales.
 - Decidir entre las 3 opciones de la sección 3 (Streamlit / GitHub Pages sin
   LLM / híbrido) — es una decisión de producto, no técnica.
+
+### Nota sobre la estructura final (2026-11-11)
+
+- Los **códigos no son estables** entre la versión anterior y esta: 14 estrategias nuevas reutilizan códigos
+  que eran de otra y 24 se renumeraron. Lo que se enlace a la estructura (indicadores, iniciativas) debe
+  usar los códigos nuevos; `codigo_anterior` solo sirve para migrar una vez.
+- **Homónimos:** el buscador es literal, así que «escuela» encuentra 1.2.1 por su palabra clave
+  «Escuela Superior de Administración Pública (ESAP)». El tope de especificidad no lo corrige; lo
+  resolvería una lista de exclusiones editable (término + estrategia) o un ajuste de contenido.
+- **Vacío de contenido:** fuera del eje 7 ninguna estrategia trae «infraestructura educativa», así que
+  «colegio» empata varias estrategias de educación por la palabra `educacion`.
+- `sinonimos.csv`: 25 de 139 destinos no coinciden hoy de forma literal; 4 filas quedaron sin ningún
+  destino que exista (`credito educativo`, `luz`, `electricidad`, `sgp`).
