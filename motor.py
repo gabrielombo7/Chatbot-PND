@@ -141,7 +141,7 @@ Ejemplo: «Infraestructura da muchos resultados: ¿de qué tipo? Por ejemplo, In
 cultural, deportiva o digital.» Aun así la persona ya ve todas en el árbol.
 - Si 'resultados' viene vacío pero hay 'en_descripcion', lo dices: ninguna estrategia \
 coincide en sus palabras clave, y estas son las que mencionan el término en la descripción \
-de su tema o eje; presentas esas (máximo 3) con el mismo formato.
+de su tema; presentas esas (máximo 3) con el mismo formato.
 - La interfaz ya muestra los términos buscados, y los sinónimos y demás notas van en el \
 desplegable «Notas»: no los repitas.
 - La línea «La estrategia se centra en…» lista 3 o 4 de las 'palabras_clave_cortas' de esa \

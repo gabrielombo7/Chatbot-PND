@@ -76,7 +76,7 @@ que no depende del score:
 |---|---|---|
 | **Más cercanas** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
 | **Relacionadas** | ≥ 30 % del mejor, hasta 10 | árbol |
-| **En la descripción** | estrategias sin coincidencia propia cuyo **tema o eje** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
+| **En la descripción** | estrategias sin coincidencia propia cuyo **tema** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
 
 Lo que coincide por debajo del 30 % no se muestra. Dos estrategias con el mismo score
 reciben el mismo trato: nunca se elige entre ellas. Los umbrales y los topes están al

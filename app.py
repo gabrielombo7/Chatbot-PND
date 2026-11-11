@@ -162,7 +162,7 @@ TIP_ARBOL = (
     "<span class=\"tp\">Cuando el chat responde, el árbol marca en amarillo las estrategias "
     "en tres grupos:</span>"
     "<span class=\"tp\"><b>Más cercanas:</b> la mejor, o las mejores si empatan. "
-    "<b>Relacionadas:</b> parecidas. <b>En la descripción:</b> su tema o eje menciona la "
+    "<b>Relacionadas:</b> parecidas. <b>En la descripción:</b> su tema menciona la "
     "palabra en su descripción.</span>"
     "<span class=\"tp\">Con «Mostrar» ves un grupo a la vez, o todo el árbol. La «i» de cada "
     "eje y tema muestra su descripción.</span>")
@@ -238,7 +238,7 @@ def pintar_notas(busquedas):
         "aparece en muchas estrategias vale menos). "
         f"Más cercanas: desde el {round(100 * B.UMBRAL_CERCANAS)} % del mejor puntaje; "
         f"Relacionadas: desde el {round(100 * B.UMBRAL_RELACIONADAS)} %. «En la descripción» "
-        "no tiene puntaje: son estrategias cuyo tema o eje menciona la palabra en su descripción.")
+        "no tiene puntaje: son estrategias cuyo tema menciona la palabra en su descripción.")
 
     with st.expander("Notas"):
         for n in notas:

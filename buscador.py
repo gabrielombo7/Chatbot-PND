@@ -20,7 +20,7 @@ peso del campo x multiplicador de origen x especificidad del término (un térmi
 aparece en muchas estrategias vale poco; uno muy raro no pasa de cierto tope). Lo calcula esta función, no el modelo: el
 modelo sólo elige los términos. Los niveles (Más cercanas / Relacionadas) son umbrales sobre
 ese score, relativos al mejor; lo que queda por debajo no se muestra. «En la descripción»
-es una categoría aparte, sin puntaje: estrategias cuyo tema o eje menciona el término. data/reglas.csv restringe grupos de estrategias (p. ej.
+es una categoría aparte, sin puntaje: estrategias cuyo tema menciona el término en su descripción. data/reglas.csv restringe grupos de estrategias (p. ej.
 el eje 7, sólo para desastres) a las preguntas que mencionen sus palabras disparadoras.
 
 Cada resultado viene con la evidencia: qué término coincidió y en qué campo.
@@ -246,11 +246,10 @@ def cargar_estructura() -> pd.DataFrame:
     df["_est"] = df["est"].map(normalizar)
     df["_tema"] = df["tema"].map(normalizar)
     df["_tema_desc"] = df["tema_desc"].map(normalizar)
-    df["_eje_desc"] = df["eje_desc"].map(normalizar)
 
     # Conjunto de raíces por campo, para la capa 2.
     for destino, origen in [("_r_kw", "_kw"), ("_r_est", "_est"), ("_r_tema", "_tema"),
-                            ("_r_tema_desc", "_tema_desc"), ("_r_eje_desc", "_eje_desc")]:
+                            ("_r_tema_desc", "_tema_desc")]:
         df[destino] = df[origen].apply(lambda t: {raiz(w) for w in t.split() if len(w) >= 4})
 
     _TABLAS = {
@@ -352,10 +351,10 @@ _CAMPOS = [
 ]
 
 
-# Descripciones de tema y eje: categoría aparte («En la descripción»), sin puntaje.
+# Descripción del tema: categoría aparte («En la descripción»), sin puntaje. La del eje no
+# cuenta: marcaría todas las estrategias del eje (sólo se muestra, tras el botón «i»).
 _CAMPOS_DESC = [
     ("descripción del tema", "_tema_desc", "_r_tema_desc"),
-    ("descripción del eje", "_eje_desc", "_r_eje_desc"),
 ]
 
 
@@ -575,7 +574,7 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
             r["nivel"] = "omitida"
     en_chat = cercanas[:MAX_CHAT]         # si hay más empatadas, el resto sólo va al árbol
 
-    # 6) En la descripción: estrategias sin coincidencia propia cuyo tema o eje menciona
+    # 6) En la descripción: estrategias sin coincidencia propia cuyo tema menciona
     #    el término en su descripción. No tiene puntaje. Busca sólo con los términos que
     #    llegan de la persona o del modelo: los sinónimos del diccionario (p. ej. el genérico
     #    «infraestructura» de «polideportivo») la inundarían.
@@ -640,7 +639,7 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
         salida["mensaje"] = "Ninguna estrategia contiene esos términos."
     elif not cercanas:
         salida["mensaje"] = ("Ninguna estrategia coincide en sus palabras clave, su nombre ni su "
-                             "tema; estas mencionan el término en la descripción de su tema o eje.")
+                             "tema; estas mencionan el término en la descripción de su tema.")
         salida["en_descripcion"] = [
             {"codigo": c, "estrategia": por_codigo[c]["est"],
              "tema": f"{por_codigo[c]['tema_n']} {por_codigo[c]['tema']}",

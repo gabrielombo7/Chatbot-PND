@@ -157,7 +157,8 @@ rankings distintos para la misma pregunta.
 Las **categorías** (claves `cercanas`, `relacionadas`, `descripcion`) son: *Más cercanas*
 (≥ 80 % del mejor score, incluidos los empates con el mejor; hasta 5 en el chat),
 *Relacionadas* (≥ 30 %, hasta 10, `MAX_RELACIONADAS`) y *En la descripción* (sin puntaje:
-estrategias sin coincidencia propia cuyo tema o eje menciona el término en su descripción,
+estrategias sin coincidencia propia cuyo tema menciona el término en su descripción —la del
+eje no cuenta: marcaría todas sus estrategias—,
 buscando sólo con los términos «escrito» —los del usuario o el modelo—, porque los
 sinónimos genéricos del diccionario la inundarían). Lo que queda por debajo del 30 % no se
 muestra (`n_omitidas`). Mismo score = misma categoría; cuando un tope partiría un empate,
