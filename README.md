@@ -42,8 +42,8 @@ coincidencia de texto en tres capas, y cada una se explica en una frase.
 
 **Capa 2 — raíz.** Los primeros caracteres de la palabra, para que *educativa*
 encuentre *educación* y *educativo*. La regla es fija: 8 letras o más, los
-primeros 6 caracteres; 6 o 7 letras, los primeros 5; menos de 6, la palabra
-completa.
+primeros 7 caracteres; 6 o 7 letras, los primeros 5; menos de 6, la palabra
+completa. (Con 7, *integración* ya no coincide con *integridad*.)
 
 **Capa 3 — sinónimos.** El diccionario de `data/sinonimos.csv` traduce palabras de
 uso corriente al vocabulario del documento. Esta capa existe porque el documento
@@ -54,9 +54,13 @@ El orden de los resultados sale de un score que se explica en una línea. Se bus
 tres campos —**palabras clave, nombre de la línea estratégica y tema**— y, por cada término
 que coincide, se suma:
 
-> peso del campo × multiplicador de origen × especificidad del término
+> (peso del campo + la mitad del peso de cada otro campo donde también coincide) × multiplicador de origen × especificidad del término
 
-- **Peso del campo:** palabras clave 4, nombre 4, tema 3.
+- **Peso del campo:** palabras clave 4, nombre 4, tema 3. Si el mismo término aparece
+  también en otro campo de la misma línea (por ejemplo «salud» en una palabra clave, en
+  el nombre y en el tema), cada campo adicional suma la mitad de su peso: confirma que la
+  línea trata de eso, sin duplicar el puntaje. Es lo que desempata a «Salud en las
+  regiones» frente a líneas que sólo mencionan «salud» en una palabra clave.
 - **Multiplicador de origen:** ×2 para los términos que llegan a la búsqueda (los de
   la persona y los que el modelo traduce); ×1 para los que agrega el diccionario.
 - **Especificidad:** un término que aparece en muchas líneas estratégicas dice poco. Vale
@@ -74,21 +78,20 @@ que no depende del score:
 
 | Categoría | Regla | Dónde se ve |
 |---|---|---|
-| **Más cercanas** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
-| **Relacionadas** | ≥ 30 % del mejor, hasta 10 | árbol |
+| **Más cercanas** | ≥ 85 % del mejor score y **como máximo 3** (si hay más, las que sobran pasan a «Relacionadas»; el desempate es por más términos distintos coincidentes y, al final, por código) | respuesta del chat y árbol |
+| **Relacionadas** | ≥ 30 % del mejor, hasta 10 (más las «Más cercanas» que sobraron) | árbol |
 | **En la descripción** | líneas estratégicas sin coincidencia propia cuyo **tema** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
 
-Lo que coincide por debajo del 30 % no se muestra. Dos líneas estratégicas con el mismo score
-reciben el mismo trato: nunca se elige entre ellas. Los umbrales y los topes están al
-comienzo de `buscador.py` (`UMBRAL_CERCANAS`, `UMBRAL_RELACIONADAS`, `MAX_CHAT`,
+Lo que coincide por debajo del 30 % no se muestra. Los umbrales y los topes están al
+comienzo de `buscador.py` (`UMBRAL_CERCANAS`, `MAX_CERCANAS`, `UMBRAL_RELACIONADAS`,
 `MAX_RELACIONADAS`).
 
-**Consultas amplias.** Si una palabra da demasiados resultados (por ejemplo
-«infraestructura»: más de 5 empatadas en «Más cercanas», o más de 20 marcadas), el
-buscador lo señala y ofrece, tal cual están en el PND, las palabras clave que la
-concretan («Infraestructura deportiva», «Infraestructura cultural»…). El chat dice que
-da muchos resultados y pregunta de qué tipo, y el árbol muestra todo de todos modos.
-Una palabra suelta se busca siempre, sin pedir aclaración antes.
+**Consultas amplias.** Si 3 o más líneas llegan al umbral de «Más cercanas» (por ejemplo
+con «infraestructura»), la consulta no distingue y el buscador lo señala (`muy_amplia`) y
+ofrece, tal cual están en el PND, las palabras clave que la concretan («Infraestructura
+deportiva», «Infraestructura cultural»…). La respuesta dice que da muchos resultados y
+pregunta de qué tipo, y el árbol muestra todo de todos modos. Una palabra suelta se busca
+siempre, sin pedir aclaración antes.
 
 **Reglas (`data/reglas.csv`).** Hay grupos de líneas estratégicas que solo tienen sentido para
 ciertas preguntas. Hoy: el **eje 7** (reconstrucción tras el sismo) solo se sugiere si
@@ -99,34 +102,45 @@ columnas: `aplica_a` (`eje 7`, `tema 7.1` o un código `7.1.3`), `palabras_dispa
 apunta a algo que no existe, la aplicación avisa al arrancar.
 
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
-interfaz la muestra. La respuesta del chat trae las «Más cercanas» y, debajo, el
+interfaz la muestra. La respuesta del chat trae las «Más cercanas» (máximo 3) y, debajo, el
 desplegable «Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas
 que actuaron, cuántas líneas estratégicas hay en cada categoría y cómo se calcula el orden. En
 el árbol, todas las marcadas se pintan en azul con su insignia; después de cada
 respuesta el árbol queda en «Más cercanas» (ficha abierta, con sus palabras clave
 resaltadas) y los botones «Mostrar: Más cercanas · Relacionadas · En la descripción ·
-Todos» (junto a Plegar/Desplegar) cambian de grupo. La descripción de cada eje y tema
+Todos» cambian de grupo. La descripción de cada eje y tema
 está escondida tras su botón «i». Dos pequeños «i» de la página explican qué es el chat y
 qué significan las categorías.
 Si la sugerencia está mal, se puede ver exactamente por qué.
 
-El buscador propio del árbol resalta lo que escribes y tiene el botón «Exacta» (sólo
-palabras completas; también funciona escribiendo entre comillas). Cuando la conversación del
+El buscador propio del árbol resalta lo que escribes; entre comillas busca sólo palabras
+completas («deporte» no encuentra «deportivo»). Cuando la conversación del
 chat ya es larga, tiene su propio scroll para que no alargue la página y deje el árbol
 fuera de vista. El tema es siempre claro (`.streamlit/config.toml`), aunque el
 dispositivo esté en modo oscuro.
 
 ## Qué hace el modelo y qué no
 
-El modelo **no tiene el PND en memoria**: el *system prompt* sólo lleva los
-nombres de los 7 ejes. Su única función es convertir la pregunta en términos de
-búsqueda y redactar lo que devolvió la herramienta.
+El modelo **ve el catálogo oficial** (códigos, nombres y palabras clave de las 122 líneas
+estratégicas, más la descripción de cada tema, tomados del libro de estructura) y lo usa
+para una sola cosa: traducir lo que escribe la persona al vocabulario del Plan y elegir
+los términos de búsqueda. Si el texto no dice qué es el proyecto (una sigla, un nombre
+propio), pide una descripción en vez de buscar. Como el catálogo sale del libro, **no hay
+que mantener un diccionario para que entienda el vocabulario**: al cambiar el libro, cambia
+lo que ve el modelo.
 
-Las consecuencias importan:
+**No redacta los resultados.** Las líneas estratégicas de la respuesta —código, nombre,
+dónde coincidió y palabras clave— las escribe `motor.py` desde el libro, a partir de lo
+que devolvió `buscador.py`. Dos candados evitan que el modelo, que conoce el catálogo,
+presente algo que la búsqueda no encontró:
 
-- No puede inventar una línea estratégica, porque nunca recibió la lista.
-- Si la búsqueda no encuentra nada, lo dice; no tiene con qué rellenar.
-- Los códigos y nombres que escribe son los que le devolvió `buscador.py`.
+- La respuesta con resultados sale de los datos; el texto del modelo no entra.
+- Si el modelo contesta sin buscar y nombra un código o una línea que ninguna herramienta
+  devolvió (ni se mostró antes en la conversación), ese texto se descarta y se busca con
+  las palabras de la persona.
+
+Además, con resultados no hace falta una segunda llamada al modelo: cada consulta cuesta
+una llamada, y el catálogo, que no cambia, se guarda en caché.
 
 Modelo: `claude-haiku-4-5`. Cada consulta cuesta una fracción de centavo. Conviene
 poner un tope de gasto en la consola de Anthropic.
@@ -143,10 +157,12 @@ temas o líneas estratégicas hay. Al arrancar se valida que todo cuadre (que ca
 que los códigos encajen, 1–10 palabras clave, descripciones completas…) y, si algo
 falla, la aplicación lo dice con un mensaje claro en vez de fallar en silencio.
 
-**Cuando una búsqueda no encuentre algo que debería:** casi siempre es que falta
-una fila en `data/sinonimos.csv`. Se abre en Excel, se agrega la palabra corriente
-y los términos del documento separados por `;`, y se reinicia. No hay que tocar
-código.
+**Cuando una búsqueda no encuentre algo que debería:** como el modelo ve el catálogo, casi
+siempre es que el Plan no tiene una palabra clave para eso (un asunto de contenido, no de
+código). El diccionario `data/sinonimos.csv` ya **no es necesario** para que el modelo
+entienda el vocabulario, pero sigue funcionando como ayuda opcional: se abre en Excel, se
+agrega la palabra corriente y los términos del documento separados por `;`, y se
+reinicia. No hay que tocar código.
 
 Al agregar una fila conviene verificar que el término de destino **sí exista** en
 el archivo de estructura; si no existe, la fila no sirve de nada. La forma rápida

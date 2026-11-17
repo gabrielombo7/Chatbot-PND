@@ -66,7 +66,7 @@ todo el diseño:
 |---|---|---|
 | **Árbol** (`arbol.py` → HTML) | Muestra la estructura, pliega/despliega, buscador literal en el navegador | **Sí**, tal cual. Ya es HTML/CSS/JS autocontenido con los datos incrustados como JSON. |
 | **Buscador de palabras** (`buscador.py`) | Las 3 capas de coincidencia (ver sección 4) | **Sí, pero hay que reescribirlo en JavaScript.** Hoy está en Python y corre del lado del servidor de Streamlit. La lógica es simple (normalizar texto, recortar palabras, comparar conjuntos) y se puede portar a JS sin perder nada: no usa ninguna librería de Python que no tenga equivalente trivial en JS. |
-| **Traducción de la pregunta + redacción** (`motor.py`, llama a Claude) | Convierte "quiero un colegio" en `["colegio", "infraestructura educativa", ...]` y redacta la respuesta en lenguaje natural | **No.** Necesita la llave del API de Anthropic, y una llave en JS de cliente queda expuesta a cualquiera. Esto requiere un servidor (Streamlit, una función serverless, un pequeño backend) que la guarde y haga la llamada por la persona. |
+| **Traducción de la pregunta** (`motor.py`, llama a Claude) | Convierte "quiero un colegio" en términos del vocabulario del Plan (con el catálogo a la vista); la respuesta la escribe el código desde los datos | **No.** Necesita la llave del API de Anthropic, y una llave en JS de cliente queda expuesta a cualquiera. Esto requiere un servidor (Streamlit, una función serverless, un pequeño backend) que la guarde y haga la llamada por la persona. |
 
 **Conclusión práctica:** no es "GitHub Pages o Streamlit" sino **qué parte va
 en cada uno**. Hay tres caminos razonables:
@@ -101,26 +101,31 @@ intención y es la más barata de mantener. Pero eso lo decide Gabriel.
 Esta es la distinción de diseño más importante del proyecto. Todo el código
 la respeta y conviene que cualquier cambio futuro también la respete.
 
-### El LLM (Claude, vía `motor.py`) solo hace dos cosas
+### El LLM (Claude, vía `motor.py`) solo hace una cosa
 
-1. **Traducir** la pregunta de la persona a una lista de términos de búsqueda
-   (palabras de la persona + palabras con que el documento nombraría lo mismo).
-2. **Redactar** en prosa lo que devolvió la búsqueda, citando el código exacto
-   y el campo donde coincidió cada término.
+**Traducir** lo que escribe la persona a términos de búsqueda con el vocabulario del Plan
+(y, si el texto no dice qué es el proyecto, pedir un dato). Para eso el *system prompt* lleva
+el **catálogo oficial** generado desde el libro (`motor.catalogo_texto()`: ejes, temas con su
+descripción, y cada línea estratégica con su nombre y palabras clave; unas 9 mil palabras,
+con `cache_control` para que se guarde en caché). Ya no se mantiene un diccionario para
+que el modelo conozca el vocabulario: al cambiar el libro cambia el catálogo.
 
-El modelo **no tiene el contenido del PND en memoria.** El *system prompt* de
-`motor.py` solo lleva los nombres de los 7 ejes — ni los temas, ni las
-líneas estratégicas, ni las palabras clave. Esto es deliberado: si el modelo tuviera
-la estructura completa en el prompt, podría "recordar mal" un código o
-mezclar dos líneas estratégicas parecidas. Al no tener nada, no tiene de dónde
-inventar: cada línea estratégica que menciona viene literalmente del resultado JSON
-que le devolvió una herramienta, en la misma llamada.
+**El modelo no redacta los resultados.** Conocer el catálogo hace posible que el modelo
+nombre líneas que la búsqueda no devolvió, así que el diseño lo impide en código:
 
-El ciclo (`motor.responder`) es: Claude pide `buscar_estrategias(terminos)` →
-Python ejecuta la búsqueda real → el resultado (con código, nombre, eje, tema,
-evidencia) se le devuelve a Claude como *tool_result* → Claude redacta la
-respuesta final usando solo esos datos. Hay un tope de 6 vueltas para que un
-ciclo que no converge no cuelgue la conversación.
+1. Con resultados, la respuesta la escribe `motor.texto_busqueda` desde el resultado de
+   `buscar_estrategias` (código, nombre y palabras clave tal cual, y dónde coincidió cada
+   una). El texto del modelo no entra, y no hace falta una segunda llamada al modelo.
+2. Si el modelo contesta sin buscar (o no devuelve nada) y su texto contiene un código de línea
+   que ninguna herramienta devolvió, o el nombre de una línea que no devolvió ninguna
+   (`motor.lineas_ajenas`), el texto se descarta y se busca con las palabras de la persona.
+   Los códigos que ya se mostraron antes en la conversación se pueden volver a mencionar.
+3. Una ficha pedida por código se escribe también desde los datos (`texto_ficha`).
+
+El ciclo (`motor.responder`) es: Claude pide `buscar_estrategias(terminos)` → Python ejecuta la
+búsqueda real → si hay resultados, el texto sale de los datos (`_cerrar`); si no, el resultado
+vuelve a Claude como *tool_result* para que reintente (o llame `listar_vocabulario`). Hay un
+tope de 6 vueltas para que un ciclo que no converge no cuelgue la conversación.
 
 ### El código de coincidencia exacta (`buscador.py`) hace todo lo demás
 
@@ -131,8 +136,8 @@ Todo es comparación de texto, en tres capas, cada una explicable en una frase:
   mayúsculas (función `normalizar`).
 - **Capa 2 — raíz.** Los primeros caracteres de la palabra, para que
   *"educativa"* encuentre *"educación"*. Regla fija y documentada en el código
-  (función `raiz`): 8+ letras → 6 caracteres; 6-7 letras → 5; menos de 6 → la
-  palabra completa.
+  (función `raiz`): 8+ letras → 7 caracteres; 6-7 letras → 5; menos de 6 → la
+  palabra completa. (La misma regla está en `arbol.py`, para resaltar las palabras clave.)
 - **Capa 3 — sinónimos.** El archivo `data/sinonimos.csv` traduce palabras de
   uso corriente ("colegio", "beca") a los términos que sí usa el documento
   ("infraestructura educativa", "financiación estudiantil"). Es una tabla
@@ -143,7 +148,8 @@ El **orden de los resultados** sale de un score declarado, no aprendido (funció
 `buscar_estrategias`). Se busca en palabras clave, nombre de la línea estratégica y nombre del
 tema; las descripciones de eje y tema sólo se muestran (las palabras clave del tema no se usan ni se muestran)
 (sumarlas solo añadía ruido). Por cada término que coincide se suma: peso del campo
-(`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen (×2 los términos
+(`PESO_CAMPO`: clave 4, nombre 4, tema 3; si el mismo término coincide también en otro campo
+de la misma línea, cada campo adicional suma `OTROS_CAMPOS` = la mitad de su peso) × multiplicador de origen (×2 los términos
 que llegan a la herramienta, ×1 los que agrega el diccionario de sinónimos) ×
 especificidad (ln(total ÷ líneas estratégicas donde aparece el término): un término frecuente
 como «infraestructura», en 26 de 122 líneas estratégicas, vale poco). Un término que aparece
@@ -155,20 +161,20 @@ de ahí el orden lo calcula la función. Por eso términos distintos pueden dar
 rankings distintos para la misma pregunta.
 
 Las **categorías** (claves `cercanas`, `relacionadas`, `descripcion`) son: *Más cercanas*
-(≥ 80 % del mejor score, incluidos los empates con el mejor; hasta 5 en el chat),
-*Relacionadas* (≥ 30 %, hasta 10, `MAX_RELACIONADAS`) y *En la descripción* (sin puntaje:
+(≥ 85 % del mejor score y como máximo 3, `MAX_CERCANAS`; las que sobran pasan a *Relacionadas*;
+desempate: más términos distintos coincidentes y, al final, el código),
+*Relacionadas* (≥ 30 %, hasta 10 más las que sobraron, `MAX_RELACIONADAS`) y *En la descripción* (sin puntaje:
 líneas estratégicas sin coincidencia propia cuyo tema menciona el término en su descripción —la del
 eje no cuenta: marcaría todas sus líneas estratégicas—,
 buscando sólo con los términos «escrito» —los del usuario o el modelo—, porque los
 sinónimos genéricos del diccionario la inundarían). Lo que queda por debajo del 30 % no se
-muestra (`n_omitidas`). Mismo score = misma categoría; cuando un tope partiría un empate,
-el grupo entero baja. Las constantes están al inicio de `buscador.py`.
+muestra (`n_omitidas`). Las constantes están al inicio de `buscador.py`.
 
-Una **consulta muy amplia** (`muy_amplia`: más de `MAX_CHAT` «más cercanas» o más de
-`MUCHOS_RESULTADOS` marcadas) trae `sugerencias`: palabras clave del PND, tal cual, que
-contienen los términos que coincidieron y dicen algo más (`_sugerencias`). El prompt de
-`motor.py` obliga a buscar aunque llegue una sola palabra y, si `muy_amplia`, a avisarlo y
-preguntar de qué tipo con esas sugerencias.
+Una **consulta muy amplia** (`muy_amplia`: 3 o más líneas llegan al umbral de «Más cercanas»)
+trae `sugerencias`: palabras clave del PND, tal cual, que contienen los términos que
+coincidieron y dicen algo más (`_sugerencias`). El prompt de `motor.py` obliga a buscar aunque
+llegue una sola palabra, y `texto_busqueda` avisa que da muchos resultados y pregunta de qué
+tipo con esas sugerencias.
 
 Las **reglas** (`data/reglas.csv`, columnas `aplica_a`, `palabras_disparadoras`,
 `nota`) restringen grupos de líneas estratégicas: si la pregunta no menciona ninguna palabra
@@ -179,24 +185,26 @@ desastre. Si todo lo que coincidió pertenece a un grupo restringido, se muestra
 `validar_reglas()` corre al arrancar y falla con un mensaje claro si el archivo apunta
 a algo que no existe.
 
-`buscar_estrategias` devuelve `resultados` (las «más cercanas» con evidencia; lo que ve
+`buscar_estrategias` devuelve `resultados` (las «más cercanas», máximo 3, con evidencia; lo que ve
 el modelo, junto con `n_cercanas`, `muy_amplia`, `sugerencias` y, si no hay cercanas,
 `en_descripcion`) y, sólo para la interfaz, `niveles`, `coincidencias`, `avisos_reglas` y
 `n_omitidas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol marca
 todas en azul con su insignia, deja preseleccionada «Más cercanas» con su ficha
 abierta, resalta sus palabras clave que coincidieron (con la misma regla de raíz del
 buscador), esconde las descripciones de eje y tema tras un botón «i» y trae botones para ver
-una categoría a la vez (o todo).
+una categoría a la vez (o todo). Ya no tiene «Exacta», «Plegar todo» ni «Desplegar todo»: la
+búsqueda exacta se hace entre comillas.
 
 Cada resultado trae la evidencia completa (qué término, en qué campo, por cuál
-capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin
-tener que inventar justificaciones.
+capa), y eso es lo que la interfaz muestra en «Coincidencia directa» (la palabra clave se
+muestra tal como está escrita en el documento).
 
 **Por qué importa esta separación:** todo lo que decide *qué líneas estratégicas
 aparecen* es determinista, está en `buscador.py`, se puede probar sin llamar a
-ningún API y no cambia entre una ejecución y otra. Lo único no determinista es
-la *redacción* del texto final. Si algún día se audita por qué el orientador
-sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
+ningún API y no cambia entre una ejecución y otra. Lo único no determinista es la
+*elección de los términos* por parte del modelo (con los mismos términos, el resultado
+siempre es el mismo; con otras palabras, puede cambiar). Si algún día se audita por qué el
+orientador sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 
 ## 5. Archivos del repo
 
@@ -205,7 +213,7 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 | `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, el expander "Notas" (sinónimos, reglas, totales y cómo se ordena, generado desde las constantes de `buscador.py`) y los tooltips de ayuda (CSS, sin JavaScript). |
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.iframe`, o con `st.components.v1.html` en versiones antiguas de Streamlit). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga y valida el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
-| `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |
+| `motor.py` | Las herramientas que ve Claude, el *system prompt* con el catálogo, el ciclo de conversación (`responder`), el texto de la respuesta (`texto_busqueda`, `texto_ficha`) y el candado contra líneas ajenas (`lineas_ajenas`). Modelo: `claude-haiku-4-5`. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad, versión final. Tres hojas por nombre: `VF_Ejes` (descripción), `VF_Temas` (descripción) y `VF_Estructura` (línea estratégica, una sola lista de 1 a 10 palabras clave, código anterior). El contenido proviene del anexo técnico del PDF «Audiencias Públicas PPI 2027-2030», tomado como versión oficial. Las otras hojas del libro se ignoran. `buscador.cargar_estructura()` las valida y las une en una fila por línea estratégica; `cargar_tablas()` devuelve las tres tablas con llaves por código (para el tablero y los indicadores). Si cambia la estructura, se reemplaza este archivo y se reinicia la app. |
 | `data/sinonimos.csv` | El diccionario de la capa 3. Columnas: `palabra`, `terminos_documento` (separados por `;`), `nota`. ~110 filas ya verificadas contra el Excel (cada término de destino existe de verdad en el documento). |
 | `requirements.txt` | `streamlit`, `anthropic`, `pandas`, `openpyxl`. |
@@ -223,11 +231,11 @@ iniciativas/indicadores debe partir de ahí.
 
 ## 6. Reglas de diseño que no se deben romper al editar
 
-1. **El modelo nunca recibe la estructura completa.** Si se le ocurre a
-   alguien "optimizar" metiendo todo el árbol en el *system prompt* para que
-   el modelo "ya sepa" las líneas estratégicas, se rompe la garantía de que no
-   inventa. La única fuente de verdad en cada respuesta es el resultado de la
-   herramienta en esa misma llamada.
+1. **El modelo puede ver el catálogo, pero no escribe resultados.** Las líneas
+   estratégicas que se muestran salen siempre del resultado de la herramienta, escritas por
+   código; y un texto del modelo que nombre una línea que ninguna herramienta devolvió se
+   descarta (`lineas_ajenas`). Si se cambia la redacción de la respuesta, hay que conservar
+   estas dos garantías.
 2. **Toda sugerencia trae evidencia** (término, campo, capa). Si se agrega una
    forma nueva de buscar, debe poder explicar en una frase por qué encontró lo
    que encontró.
@@ -304,3 +312,16 @@ forma de píldora. El vocabulario de la interfaz es **«línea estratégica»** 
 internamente los nombres de funciones y tablas (`buscar_estrategias`, `estrategia_id`) no cambian.
 Las marcas del árbol son azules (antes amarillas) y no hay un color por eje: los ejes usan tonos de la
 misma familia azul (`COLOR_EJE` en `arbol.py`).
+
+
+## Pruebas con proyectos reales del portafolio
+
+Con 30 nombres sorteados de la hoja `BD_DNP_` del portafolio de proyectos (semilla fija), y una
+línea esperada por criterio de quien probó (a revisar por quien conoce el Plan), el motor sin
+modelo y usando sólo las palabras del nombre ubicó bien la primera cercana en 14 de 29 casos (el
+caso 30 no dice qué es el proyecto); con términos escritos como los escribiría el modelo con el
+catálogo a la vista, 27 de 29. El primer número es un piso (el nombre trae municipios y palabras de
+trámite que el modelo ignora); el segundo, un techo optimista (los términos los escribió quien
+conocía el catálogo). Un prototipo que sólo lee el texto del PDF con un ranking de texto (BM25)
+quedó peor (9 a 10 de 29): el lenguaje del Plan es de política y el de los proyectos es de obra, y
+ese puente lo hace el modelo. **Falta medir el modelo real** con la misma lista.

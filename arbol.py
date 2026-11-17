@@ -79,8 +79,7 @@ PLANTILLA = """<!DOCTYPE html>
     box-shadow:0 0 0 3px rgba(15,89,135,.15)}
   input[type=search]::-webkit-search-cancel-button{cursor:pointer}
   .acciones{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-  .niveles{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:6px;
-    padding-left:14px;border-left:1px solid var(--regla)}
+  .niveles{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .niveles .rot{font-size:14px;color:var(--tenue)}
   button.ctrl{font:inherit;font-size:15px;font-weight:600;color:var(--marino);background:#fff;
     border:1px solid var(--regla);border-radius:999px;padding:10px 15px;cursor:pointer;
@@ -94,6 +93,7 @@ PLANTILLA = """<!DOCTYPE html>
   .conteo{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
     flex-basis:100%}
   .conteo b{color:var(--marino);font-weight:700}
+  .conteo:empty{display:none}
 
   /* ---------- eje ---------- */
   details.eje{margin:22px 0 0;padding:0}
@@ -177,7 +177,7 @@ PLANTILLA = """<!DOCTYPE html>
   @media (max-width:640px){
     .eje-nom{font-size:22px}.est-nom{font-size:18px}.tema-nom{font-size:17px}
     .eje-cnt{display:none}.eje-nom,.tema-nom,.est-nom{min-width:0}
-    .barra{position:static}.niveles{margin-left:0;padding-left:0;border-left:0}
+    .barra{position:static}
     button.ctrl{padding:8px 12px;font-size:14px}
     .lista{padding-left:6px}.ficha{margin-left:8px}.tema-desc{padding-left:4px}
   }
@@ -189,14 +189,10 @@ PLANTILLA = """<!DOCTYPE html>
       stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/>
       <path d="M20 20l-4.3-4.3"/></svg>
     <input type="search" id="q" placeholder="Buscar en el árbol: agua, vivienda, docente…"
-      autocomplete="off" aria-label="Buscar en el árbol">
+      autocomplete="off" aria-label="Buscar en el árbol"
+      title="Entre comillas busca la palabra exacta: «deporte» no encuentra «deportivo».">
   </div>
-  <button class="ctrl" id="exacta" type="button" aria-pressed="false"
-    title="Coincidencia exacta: sólo palabras completas («deporte» no encuentra «deportivo»). También puedes escribir la búsqueda entre comillas.">Exacta</button>
-  <div class="acciones">
-    <button class="ctrl" id="abrir">Desplegar todo</button>
-    <button class="ctrl" id="cerrar">Plegar todo</button>
-  </div>
+  <div class="acciones"></div>
   <div class="conteo" id="conteo"></div>
 </div>
 
@@ -263,8 +259,8 @@ const FLECHA = '<svg class="flecha" width="13" height="13" viewBox="0 0 24 24" '
   + 'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" '
   + 'stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>';
 
-/* Misma regla de raíz que buscador.py: 8+ letras -> 6; 6-7 -> 5; menos, completa. */
-const raiz = w => w.length >= 8 ? w.slice(0,6) : (w.length >= 6 ? w.slice(0,5) : w);
+/* Misma regla de raíz que buscador.py: 8+ letras -> 7; 6-7 -> 5; menos, completa. */
+const raiz = w => w.length >= 8 ? w.slice(0,7) : (w.length >= 6 ? w.slice(0,5) : w);
 const palabras = s => sinTildes(s).replace(/[^a-z0-9ñ ]/g," ").split(/\\s+/).filter(w => w.length >= 4);
 function chipCoincide(k, terminosKw){
   const kn = sinTildes(k), kr = new Set(palabras(k).map(raiz));
@@ -356,11 +352,10 @@ const FILTRO = new Set();   /* niveles elegidos con los botones; vacío = todo e
 const pasaNivel = e => FILTRO.size === 0 || [...FILTRO].some(n => e.classList.contains(n));
 
 let ultimaBusqueda = "|false";
-let EXACTA = false;
 
-/* Lo escrito en el buscador: entre comillas o con «Exacta» activado, sólo palabras completas. */
+/* Lo escrito en el buscador; entre comillas, sólo palabras completas. */
 function consulta(){
-  let q = caja.value.trim(), exacto = EXACTA;
+  let q = caja.value.trim(), exacto = false;
   const m = q.match(/^["“](.+)["”]$/);
   if(m){ q = m[1].trim(); exacto = true; }
   return {t: sinTildes(q), exacto, texto: q};
@@ -434,9 +429,9 @@ function filtrar(){
 
   if(t || FILTRO.size){
     const cuales = [...FILTRO].sort().map(n => ROTULO[n]).join(" + ");
-    conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length + " líneas estratégicas"
-      + (t ? " contienen «" + esc(q.texto) + "»" + (exacto ? " como palabra exacta" : "") : "")
-      + (t && FILTRO.size ? " en " : "") + (!t ? " en " : "") + cuales;
+    /* Sólo se cuenta cuando se escribe algo: los botones ya traen su número. */
+    conteo.innerHTML = t ? "<b>" + visibles + "</b> líneas estratégicas contienen «" + esc(q.texto) + "»"
+      + (exacto ? " como palabra exacta" : "") + (FILTRO.size ? " en " + cuales : "") : "";
     nada.classList.toggle("oculto", visibles > 0);
     if(visibles === 0){
       nada.innerHTML = t
@@ -447,33 +442,15 @@ function filtrar(){
         : "Ninguna línea estratégica en " + cuales + ".";
     }
   } else {
-    conteo.innerHTML = "<b>" + ests.length + "</b> líneas estratégicas en "
-      + document.querySelectorAll("details.eje").length + " ejes";
+    conteo.innerHTML = "";
     nada.classList.add("oculto");
   }
 }
-document.getElementById("exacta").addEventListener("click", ev => {
-  EXACTA = !EXACTA;
-  ev.currentTarget.setAttribute("aria-pressed", String(EXACTA));
-  filtrar();
-});
 let temporizador;
 caja.addEventListener("input", () => {
   clearTimeout(temporizador);
   temporizador = setTimeout(filtrar, 110);
 });
-
-document.getElementById("abrir").onclick = () =>
-  document.querySelectorAll("details").forEach(d => d.open = true);
-document.getElementById("cerrar").onclick = () => {
-  document.querySelectorAll("details").forEach(d => d.open = false);
-  document.querySelectorAll(".info-bloque.abierta").forEach(b => b.classList.remove("abierta"));
-  document.querySelectorAll("button.info").forEach(b => b.setAttribute("aria-expanded", "false"));
-  document.querySelectorAll(".ficha").forEach(f => f.classList.remove("abierta"));
-  document.querySelectorAll(".est").forEach(e => e.setAttribute("aria-expanded","false"));
-  /* Al quedar corto el árbol, vuelve al inicio para que no quede espacio en blanco. */
-  window.scrollTo(0, 0);
-};
 
 dibujar();
 

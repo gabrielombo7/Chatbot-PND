@@ -64,24 +64,13 @@ st.markdown("""
   [data-testid="stIconMaterial"]{font-family:"Material Symbols Rounded" !important}
   #MainMenu,footer,header{visibility:hidden}
 
-  /* encabezado: línea vertical azul + etiqueta, título en Poppins */
-  .cab{border-left:3px solid var(--celeste-2);padding-left:10px;margin:0 0 8px;
-    font-size:13px;font-weight:600;color:var(--azul-claro);line-height:1.25}
+  /* encabezado: título en Poppins */
   .stMarkdown p.titulo{font-family:"Poppins",sans-serif;font-size:28px;font-weight:700;
     letter-spacing:-.01em;color:var(--marino);margin:0 0 4px;line-height:1.2}
   .stMarkdown p.bajada{font-size:16.5px;font-weight:300;color:var(--texto);margin:0;max-width:78ch;line-height:1.55}
   /* palabras resaltadas en azul, como en las frases de la cartilla */
   .rz{color:var(--azul-texto);font-weight:700}
   .rz-f{background:var(--azul-claro);color:#fff;font-weight:600;padding:1px 8px;border-radius:4px}
-  /* recuadro «PILAS»: franja azul marino con la etiqueta vertical */
-  .pilas{display:flex;align-items:center;gap:16px;margin:14px 0 6px;padding:12px 18px;
-    background:linear-gradient(100deg,var(--marino-oscuro),var(--marino) 60%,var(--tabla));
-    border-radius:10px;color:#fff}
-  .pilas-et{font-family:"Poppins",sans-serif;font-weight:700;font-size:13px;letter-spacing:.12em;
-    writing-mode:vertical-rl;transform:rotate(180deg);color:#fff;opacity:.95}
-  .stMarkdown .pilas p{margin:0;font-size:15.5px;line-height:1.5;color:#fff}
-  .stMarkdown .pilas b{color:#fff;font-weight:700}
-
   /* encabezados de sección numerados: «01.» + título entre dos líneas */
   .sec{display:flex;align-items:baseline;gap:8px;margin:6px 0 8px;padding:6px 0;
     border-top:1px solid var(--marino);border-bottom:1px solid var(--marino)}
@@ -111,6 +100,7 @@ st.markdown("""
 
   div[data-testid="stChatMessage"]{background:transparent;padding:.35rem 0}
   .stMarkdown p,.stMarkdown li{color:var(--texto-fuerte)}
+  div[data-testid="stChatMessage"] .stMarkdown strong{color:var(--marino);font-weight:700}
   .stMarkdown code{background:#E3EEF7;color:var(--azul-medio);border-radius:5px;padding:1px 7px;font-size:.9em}
   .stButton>button{font-family:"Nunito Sans",sans-serif;font-size:15px;
     border-radius:10px;border:1px solid var(--linea);background:#fff;color:var(--marino);
@@ -166,14 +156,9 @@ st.session_state.setdefault("terminos", [])
 enc_izq, enc_der = st.columns([1, 0.17], gap="small")
 with enc_izq:
     st.markdown(
-        '<div class="cab">Audiencias públicas<br>PPI 2027-2030</div>'
         '<p class="titulo">Orientador del Plan Nacional de Desarrollo 2026-2030</p>'
-        f'<p class="bajada">Dónde se ubicaría una idea en la estructura del Plan: '
-        f'<span class="rz">{CAT["n_ejes"]} ejes</span>, <span class="rz">{CAT["n_temas"]} temas</span> '
-        f'y <span class="rz">{CAT["n_estrategias"]} líneas estratégicas</span>.</p>'
-        '<div class="pilas"><span class="pilas-et">PILAS</span>'
-        '<p>Cada resultado es una <b>opción sugerida</b> que te ayuda a identificar las '
-        '<b>líneas estratégicas</b> del catálogo de ejes, temas y líneas estratégicas.</p></div>',
+        '<p class="bajada">Dónde se ubicaría una idea o un proyecto entre las '
+        '<span class="rz">líneas estratégicas</span> del Plan.</p>',
         unsafe_allow_html=True)
 with enc_der:
     st.write("")
@@ -194,19 +179,21 @@ def tip(cuerpo, lado="izq"):
 
 TIP_ARBOL = (
     "<span class=\"tp\">Cuando el chat responde, el árbol marca en azul las líneas estratégicas "
-    "en tres grupos:</span>"
-    "<span class=\"tp\"><b>Más cercanas:</b> la mejor, o las mejores si empatan. "
-    "<b>Relacionadas:</b> parecidas. <b>En la descripción:</b> su tema menciona la "
-    "palabra en su descripción.</span>"
+    "en tres grupos: <b>Más cercanas</b> (hasta 3), <b>Relacionadas</b> y <b>En la "
+    "descripción</b> (su tema menciona la palabra en su descripción).</span>"
     "<span class=\"tp\">Con «Mostrar» ves un grupo a la vez, o todo el árbol. La «i» de cada "
-    "eje y tema muestra su descripción.</span>")
+    "eje y tema muestra su descripción.</span>"
+    "<span class=\"tp\">El buscador de aquí es literal: encuentra la palabra sólo si está escrita "
+    "igual (entre comillas, la palabra exacta). Para traducir una idea al vocabulario del Plan, "
+    "usa el chat.</span>")
 
 TIP_CHAT = (
-    "<span class=\"tp\">Describe el proyecto en tus palabras. El asistente las traduce al vocabulario "
-    "del documento, busca por coincidencia de palabras y muestra dónde encontró cada "
-    "opción.</span>"
-    "<span class=\"tp\">El asistente no tiene el PND en memoria: cada respuesta sale de una búsqueda de "
-    "palabras sobre el archivo de estructura. Si la búsqueda no encuentra nada, lo dice.</span>")
+    "<span class=\"tp\">Describe el proyecto en tus palabras. El asistente ve el catálogo del Plan "
+    "para elegir las palabras de búsqueda, pero <b>no escribe los resultados</b>: cada línea "
+    "estratégica que ves sale del archivo de estructura, con su código, nombre y palabras "
+    "clave tal cual, y se muestra dónde coincidió.</span>"
+    "<span class=\"tp\">Si el asistente nombra una línea que la búsqueda no encontró, su "
+    "respuesta se descarta. Si la búsqueda no encuentra nada, lo dice.</span>")
 
 
 def incrustar(html, alto):
@@ -221,9 +208,8 @@ def incrustar(html, alto):
 def pintar_arbol():
     st.markdown('<div class="sec"><span class="sec-n">01.</span><span class="sec-t">Árbol del Plan</span>'
                 + tip(TIP_ARBOL) + '</div>'
-                '<p class="ayuda-col">Abre un eje o un tema, y haz clic en una línea estratégica para ver '
-                'sus <span class="rz">palabras clave</span>. El buscador de esta sección es literal: encuentra la '
-                'palabra sólo si está escrita igual.</p>',
+                '<p class="ayuda-col">Abre un eje o un tema y haz clic en una línea estratégica '
+                'para ver sus <span class="rz">palabras clave</span>.</p>',
                 unsafe_allow_html=True)
     incrustar(arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
                            st.session_state.coincidencias), ALTO_ARBOL)
@@ -268,10 +254,12 @@ def pintar_notas(busquedas):
     notas.append(
         "Cómo se ordena: por cada término que coincide se suma el peso del campo "
         f"(palabras clave {pw['palabras clave']}, nombre {pw['nombre de la línea estratégica']}, "
-        f"tema {pw['tema']}) × el origen del término "
-        "(×2 los de tu pregunta, ×1 los sinónimos) × su especificidad (un término que "
-        "aparece en muchas líneas estratégicas vale menos). "
-        f"Más cercanas: desde el {round(100 * B.UMBRAL_CERCANAS)} % del mejor puntaje; "
+        f"tema {pw['tema']}; si el término aparece también en otro campo de la misma línea, "
+        f"suma la mitad de ese peso) × el origen del término "
+        "(×2 los de tu pregunta y los que traduce el asistente, ×1 los sinónimos del diccionario) "
+        "× su especificidad (un término que aparece en muchas líneas estratégicas vale menos). "
+        f"Más cercanas: desde el {round(100 * B.UMBRAL_CERCANAS)} % del mejor puntaje y como máximo "
+        f"{B.MAX_CERCANAS} (las que sobran pasan a Relacionadas); "
         f"Relacionadas: desde el {round(100 * B.UMBRAL_RELACIONADAS)} %. «En la descripción» "
         "no tiene puntaje: son líneas estratégicas cuyo tema menciona la palabra en su descripción.")
 
@@ -323,8 +311,7 @@ def procesar(cli, pregunta):
 def pintar_chat():
     st.markdown('<div class="sec"><span class="sec-n">02.</span><span class="sec-t">Dónde ubico mi idea</span>'
                 + tip(TIP_CHAT, "der") + '</div>'
-                '<p class="ayuda-col">Escribe tu idea, proyecto o programa con tus propias '
-                'palabras y te muestro en qué líneas estratégicas del Plan podría ubicarse.</p>',
+                '<p class="ayuda-col">Describe tu idea o proyecto con tus palabras.</p>',
                 unsafe_allow_html=True)
 
     cli = cliente()
