@@ -8,35 +8,31 @@ aplicación ni pierde el estado del chat.
 
 Concepto visual: el árbol se lee como el índice de un documento de planeación.
 La numeración (1.2.3) es la columna vertebral, alineada a la izquierda con
-cifras tabulares; el nombre cuelga a su derecha. Cada eje tiene un color que
-aparece sólo como una línea vertical, no como un bloque relleno.
+cifras tabulares; el nombre cuelga a su derecha. La identidad visual sigue la
+cartilla de las audiencias públicas del PPI 2027-2030: azules institucionales,
+títulos en Poppins, texto en Nunito Sans y los ejes como barras azul marino.
 """
 
 import json
 
-# Un color por eje. Tonos desaturados, distinguibles entre sí y legibles
-# sobre papel claro. El número corresponde a la columna "Número del eje".
+# Familia de azules de la cartilla. Cada eje lleva un tono distinto (sólo se usa en el
+# número y en la línea lateral de sus fichas); el número corresponde a «Número del eje».
 COLOR_EJE = {
-    1: "#0F766E",  # Colombia desde las regiones
-    2: "#6D28D9",  # Talento, Conocimiento e Innovación
-    3: "#A1541C",  # Patriotismo Constitucional
-    4: "#B01A5B",  # Milagro Social
-    5: "#1D4ED8",  # Milagro económico
-    6: "#475569",  # Transformación del Estado
-    7: "#15803D",  # Reconstrucción, Transformación y Resiliencia
+    1: "#103760", 2: "#2C4779", 3: "#0F5987", 4: "#347399",
+    5: "#468BC2", 6: "#054363", 7: "#1B3E6C",
 }
-COLOR_POR_DEFECTO = "#5B6472"
+COLOR_POR_DEFECTO = "#347399"
 
 
 def construir_datos(df) -> list:
-    """Convierte el DataFrame plano en la jerarquía eje -> tema -> estrategia."""
+    """Convierte el DataFrame plano en la jerarquía eje -> tema -> línea estratégica."""
     ejes = []
     for (eje_n, eje_nom), g_eje in df.groupby(["eje_n", "eje"], sort=True):
         temas = []
         for (tema_n, tema_nom), g_tema in g_eje.groupby(["tema_n", "tema"], sort=True):
             temas.append({
                 "num": str(tema_n), "nombre": tema_nom,
-                "desc": g_tema["tema_desc"].iloc[0], "kw": g_tema["tema_kw_lista"].iloc[0],
+                "desc": g_tema["tema_desc"].iloc[0],
                 "estrategias": [{
                     "cod": r["est_n"], "nombre": r["est"], "kw": r["kw_lista"],
                 } for _, r in g_tema.iterrows()],
@@ -54,17 +50,18 @@ PLANTILLA = """<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --papel:#FBFBFC; --tinta:#15181D; --suave:#5B6472; --tenue:#8A929E;
-    --regla:#E3E6EB; --realce:#1F4FD8; --marca:#FEF6D9; --marca-borde:#E8C84A;
-    --serif:"Source Serif 4",Georgia,serif;
-    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+    --papel:#F7F7F7; --tinta:#3C3D3E; --suave:#585758; --tenue:#7C8087;
+    --regla:#DCDAD8; --realce:#0F5987; --marca:#DCEBF6; --marca-borde:#468BC2;
+    --marino:#1B3E6C; --marino-osc:#103760; --azul:#347399; --tarjeta:#EEECEB;
+    --serif:"Poppins",system-ui,sans-serif;
+    --sans:"Nunito Sans",system-ui,-apple-system,sans-serif;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--papel);color:var(--tinta);
-    font-family:var(--sans);font-size:17px;line-height:1.5;
+    font-family:var(--sans);font-size:17px;line-height:1.55;
     -webkit-font-smoothing:antialiased}
   #raiz{padding:4px 2px 56px}
 
@@ -76,112 +73,113 @@ PLANTILLA = """<!DOCTYPE html>
   .campo svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);
     color:var(--tenue);pointer-events:none}
   input[type=search]{width:100%;font:inherit;font-size:16px;color:var(--tinta);
-    padding:11px 14px 11px 41px;border:1px solid var(--regla);border-radius:9px;
+    padding:11px 14px 11px 41px;border:1px solid var(--regla);border-radius:10px;
     background:#fff;outline:none;transition:border-color .13s,box-shadow .13s}
   input[type=search]:focus{border-color:var(--realce);
-    box-shadow:0 0 0 3px rgba(31,79,216,.13)}
+    box-shadow:0 0 0 3px rgba(15,89,135,.15)}
   input[type=search]::-webkit-search-cancel-button{cursor:pointer}
   .acciones{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .niveles{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:6px;
     padding-left:14px;border-left:1px solid var(--regla)}
   .niveles .rot{font-size:14px;color:var(--tenue)}
-  button.ctrl{font:inherit;font-size:15px;color:var(--suave);background:#fff;
-    border:1px solid var(--regla);border-radius:9px;padding:10px 15px;cursor:pointer;
+  button.ctrl{font:inherit;font-size:15px;font-weight:600;color:var(--marino);background:#fff;
+    border:1px solid var(--regla);border-radius:999px;padding:10px 15px;cursor:pointer;
     transition:background .13s,color .13s,border-color .13s}
-  button.ctrl[aria-pressed=true]{background:var(--tinta);color:#fff;border-color:var(--tinta)}
+  button.ctrl[aria-pressed=true]{background:var(--marino);color:#fff;border-color:var(--marino)}
   button.ctrl .n{opacity:.7;font-variant-numeric:tabular-nums}
-  button.ctrl:hover{background:#F2F4F7;color:var(--tinta)}
-  button.ctrl[aria-pressed=true]:hover{background:var(--tinta);color:#fff}
+  button.ctrl:hover{background:#EAF1F8;color:var(--marino)}
+  button.ctrl[aria-pressed=true]:hover{background:var(--marino-osc);color:#fff}
   button.ctrl:focus-visible,summary:focus-visible,.est:focus-visible,button.info:focus-visible{
     outline:2px solid var(--realce);outline-offset:2px}
   .conteo{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
     flex-basis:100%}
-  .conteo b{color:var(--tinta);font-weight:500}
+  .conteo b{color:var(--marino);font-weight:700}
 
   /* ---------- eje ---------- */
-  details.eje{border-left:3px solid var(--c);margin:26px 0 0;padding-left:18px}
+  details.eje{margin:22px 0 0;padding:0}
   details.eje>summary{list-style:none;cursor:pointer;display:flex;gap:13px;
-    align-items:baseline;padding:6px 0}
+    align-items:center;padding:12px 18px;background:var(--marino);color:#fff;
+    border-radius:12px;transition:background .13s}
   details.eje>summary::-webkit-details-marker{display:none}
-  .eje-num{font-family:var(--sans);font-weight:600;font-size:15px;color:var(--c);
-    font-variant-numeric:tabular-nums;min-width:16px;letter-spacing:.02em}
-  .eje-nom{font-family:var(--serif);font-size:26px;font-weight:600;
-    line-height:1.26;letter-spacing:-.008em;flex:1}
-  .eje-cnt{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
+  details.eje>summary:hover{background:var(--marino-osc)}
+  .eje-num{font-family:var(--serif);font-weight:700;font-size:22px;color:#A7B9CB;
+    font-variant-numeric:tabular-nums;min-width:22px}
+  .eje-nom{font-family:var(--serif);font-size:23px;font-weight:600;
+    line-height:1.28;letter-spacing:-.005em;flex:1;color:#fff}
+  .eje-cnt{font-size:14px;color:#C9D6E4;font-variant-numeric:tabular-nums;
     white-space:nowrap}
-  details.eje>summary:hover .eje-nom{color:var(--c)}
-  .flecha{color:var(--tenue);transition:transform .16s ease;flex-shrink:0;
-    margin-top:7px}
+  .flecha{color:#C9D6E4;transition:transform .16s ease;flex-shrink:0}
   details[open]>summary .flecha{transform:rotate(90deg)}
+  details.eje>.cuerpo-eje,details.eje>details.tema,details.eje>.info-bloque{margin-left:10px}
 
   /* ---------- tema ---------- */
   details.tema{margin:2px 0 2px 2px}
   details.tema>summary{list-style:none;cursor:pointer;display:flex;gap:11px;
     align-items:baseline;padding:10px 0;border-top:1px solid var(--regla)}
   details.tema>summary::-webkit-details-marker{display:none}
-  .tema-num{font-weight:600;font-size:15px;color:var(--c);
+  .tema-num{font-family:var(--serif);font-weight:600;font-size:15px;color:var(--azul);
     font-variant-numeric:tabular-nums;min-width:34px}
-  .tema-nom{font-size:18px;font-weight:500;flex:1;line-height:1.4}
+  .tema-nom{font-family:var(--serif);font-size:17px;font-weight:600;color:var(--marino);flex:1;line-height:1.4}
   .tema-cnt{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums}
-  details.tema>summary:hover .tema-nom{color:var(--c)}
+  details.tema>summary:hover .tema-nom{color:var(--azul)}
 
   /* La descripción de eje y tema está escondida: se abre con el botón «i». */
   button.info{font:inherit;font-size:13px;font-weight:600;font-style:italic;font-family:var(--serif);
-    width:24px;height:24px;border-radius:50%;border:1px solid #C9CED6;background:#fff;
-    color:var(--tenue);cursor:pointer;padding:0;flex-shrink:0;align-self:center;
+    width:24px;height:24px;border-radius:50%;border:1px solid #9DB6CB;background:#fff;
+    color:var(--azul);cursor:pointer;padding:0;flex-shrink:0;align-self:center;
     transition:background .13s,color .13s,border-color .13s}
-  button.info:hover,button.info[aria-expanded=true]{background:var(--c,var(--tinta));
-    color:#fff;border-color:var(--c,var(--tinta))}
+  button.info:hover,button.info[aria-expanded=true]{background:var(--azul);
+    color:#fff;border-color:var(--azul)}
+  details.eje>summary button.info{background:transparent;border-color:#8FA6BF;color:#DCE7F2}
+  details.eje>summary button.info:hover,details.eje>summary button.info[aria-expanded=true]{background:#fff;color:var(--marino);border-color:#fff}
   .info-bloque{display:none}
   .info-bloque.abierta{display:block}
-  .eje-desc{margin:4px 0 14px;font-size:16px;line-height:1.6;color:var(--suave);max-width:78ch}
+  .eje-desc{margin:10px 0 14px;font-size:16px;line-height:1.6;color:var(--suave);max-width:78ch}
   .tema-desc{margin:6px 0 8px;padding-left:46px;font-size:15.5px;line-height:1.55;
     color:var(--suave);max-width:82ch}
-  .tema-kw{margin:0 0 10px;padding-left:46px;display:flex;flex-wrap:wrap;gap:6px}
-  .tema-kw .chip{font-size:13.5px;background:#fff;box-shadow:inset 0 0 0 1px var(--regla);color:var(--suave)}
 
   /* ---------- estrategia ---------- */
   .lista{margin:0 0 8px;padding:0 0 0 46px}
   .est{display:flex;gap:12px;align-items:baseline;padding:9px 12px 9px 10px;
     cursor:pointer;border-radius:7px;position:relative;
     transition:background .11s}
-  .est:hover{background:#F2F4F7}
-  .est[aria-expanded=true]{background:#F2F4F7}
+  .est:hover{background:#EEECEB}
+  .est[aria-expanded=true]{background:#EEECEB}
   .est-cod{font-size:14px;color:var(--tenue);font-variant-numeric:tabular-nums;
     min-width:44px;padding-top:3px;letter-spacing:.01em}
-  .est[aria-expanded=true] .est-cod,.est:hover .est-cod{color:var(--c)}
-  .est-nom{font-family:var(--serif);font-size:19px;line-height:1.38;flex:1}
+  .est[aria-expanded=true] .est-cod,.est:hover .est-cod{color:var(--azul)}
+  .est-nom{font-size:19px;font-weight:600;color:var(--tinta);line-height:1.38;flex:1}
   .est.senalada{background:var(--marca);box-shadow:inset 3px 0 0 var(--marca-borde)}
-  .est.senalada:hover{background:#FBEFC5}
-  .insignia{font-size:13px;font-weight:600;border-radius:5px;padding:2px 9px;
+  .est.senalada:hover{background:#CFE3F3}
+  .insignia{font-size:13px;font-weight:600;border-radius:999px;padding:2px 11px;
     white-space:nowrap;align-self:center;letter-spacing:.01em}
-  .insignia.cercanas{background:#166534;color:#fff}
-  .insignia.relacionadas{background:#DBEAFE;color:#1E40AF;box-shadow:inset 0 0 0 1px #A9C4F5}
-  .insignia.descripcion{background:#fff;color:#5B6472;box-shadow:inset 0 0 0 1px #D2D7DE}
+  .insignia.cercanas{background:var(--marino-osc);color:#fff}
+  .insignia.relacionadas{background:#DCEBF6;color:#0F5987;box-shadow:inset 0 0 0 1px #9DC3E0}
+  .insignia.descripcion{background:#fff;color:#585758;box-shadow:inset 0 0 0 1px #CFCDCB}
 
   /* ---------- ficha: sólo palabras clave ---------- */
   .ficha{display:none;margin:4px 0 16px 56px;padding:18px 22px 14px;
-    background:#fff;border:1px solid #DDE1E8;border-radius:10px;
-    border-left:3px solid var(--c);box-shadow:0 1px 2px rgba(21,24,29,.04)}
+    background:#fff;border:1px solid var(--regla);border-radius:12px;
+    border-left:4px solid var(--c);box-shadow:0 1px 2px rgba(16,55,96,.05)}
   .ficha.abierta{display:block}
-  .rotulo{font-size:13px;color:var(--suave);font-weight:500;margin:0 0 8px}
+  .rotulo{font-size:13.5px;color:var(--azul);font-weight:700;margin:0 0 8px}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
-  .chip{font-size:14.5px;background:#F2F4F7;color:#333A45;border-radius:6px;
+  .chip{font-size:14.5px;background:#EEECEB;color:#3C3D3E;border-radius:999px;
     padding:4px 11px;line-height:1.45}
-  .chip.coincide{background:var(--marca);color:#6B4F00;
+  .chip.coincide{background:var(--marca);color:var(--marino-osc);font-weight:600;
     box-shadow:inset 0 0 0 1px var(--marca-borde)}
-  mark{background:var(--marca);color:inherit;padding:0 1px;border-radius:2px;
-    box-shadow:0 1px 0 var(--marca-borde)}
+  mark{background:var(--marca);color:var(--marino-osc);font-weight:700;padding:0 2px;border-radius:3px;
+    box-shadow:0 2px 0 var(--marca-borde)}
   .oculto{display:none !important}
   .nada{padding:32px 4px;color:var(--suave);font-size:16px;max-width:54ch}
-  .nada b{color:var(--tinta);font-weight:500}
+  .nada b{color:var(--marino);font-weight:700}
   @media (prefers-reduced-motion:reduce){*{transition:none !important}}
   @media (max-width:640px){
     .eje-nom{font-size:22px}.est-nom{font-size:18px}.tema-nom{font-size:17px}
     .eje-cnt{display:none}.eje-nom,.tema-nom,.est-nom{min-width:0}
     .barra{position:static}.niveles{margin-left:0;padding-left:0;border-left:0}
     button.ctrl{padding:8px 12px;font-size:14px}
-    .lista{padding-left:6px}.ficha{margin-left:8px}.tema-desc,.tema-kw{padding-left:4px}
+    .lista{padding-left:6px}.ficha{margin-left:8px}.tema-desc{padding-left:4px}
   }
 </style></head><body><div id="raiz">
 
@@ -310,7 +308,6 @@ function dibujar(){
         + (t.desc ? BOTON_INFO : '')
         + '<span class="tema-cnt">' + n + '</span></summary>'
         + (t.desc ? '<div class="info-bloque"><p class="tema-desc">' + esc(t.desc) + '</p>'
-          + (t.kw.length ? '<div class="tema-kw">' + t.kw.map(k => '<span class="chip">' + esc(k) + '</span>').join("") + '</div>' : '')
           + '</div>' : '')
         + '<div class="lista">' + ests + '</div></details>';
     }).join("");
@@ -318,7 +315,7 @@ function dibujar(){
       + '<span class="eje-num">' + eje.num + '</span>'
       + '<span class="eje-nom" data-raw="' + esc(eje.nombre) + '">' + resaltar(eje.nombre, TERMINOS) + '</span>'
       + (eje.desc ? BOTON_INFO : '')
-      + '<span class="eje-cnt">' + eje.n_est + ' estrategias</span></summary>'
+      + '<span class="eje-cnt">' + eje.n_est + ' líneas estratégicas</span></summary>'
       + (eje.desc ? '<div class="info-bloque"><p class="eje-desc">' + esc(eje.desc) + '</p></div>' : '')
       + temas + '</details>');
   }
@@ -437,20 +434,20 @@ function filtrar(){
 
   if(t || FILTRO.size){
     const cuales = [...FILTRO].sort().map(n => ROTULO[n]).join(" + ");
-    conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length + " estrategias"
+    conteo.innerHTML = "<b>" + visibles + "</b> de " + ests.length + " líneas estratégicas"
       + (t ? " contienen «" + esc(q.texto) + "»" + (exacto ? " como palabra exacta" : "") : "")
       + (t && FILTRO.size ? " en " : "") + (!t ? " en " : "") + cuales;
     nada.classList.toggle("oculto", visibles > 0);
     if(visibles === 0){
       nada.innerHTML = t
-        ? "Ninguna estrategia contiene <b>«" + esc(q.texto)
+        ? "Ninguna línea estratégica contiene <b>«" + esc(q.texto)
           + "»</b>" + (FILTRO.size ? " en " + cuales : "") + ". Esta búsqueda es literal: "
           + "encuentra la palabra sólo si está escrita igual en el árbol. Para una búsqueda "
           + "que traduzca al vocabulario del documento, usa el chat."
-        : "Ninguna estrategia en " + cuales + ".";
+        : "Ninguna línea estratégica en " + cuales + ".";
     }
   } else {
-    conteo.innerHTML = "<b>" + ests.length + "</b> estrategias en "
+    conteo.innerHTML = "<b>" + ests.length + "</b> líneas estratégicas en "
       + document.querySelectorAll("details.eje").length + " ejes";
     nada.classList.add("oculto");
   }
@@ -544,7 +541,7 @@ def render(df, niveles=None, terminos=None, coincidencias=None) -> str:
     """Devuelve el HTML del árbol.
 
     niveles:       {'cercanas': [...], 'relacionadas': [...], 'descripcion': [...]} con los
-                   códigos que encontró el chat; se marcan en amarillo con su insignia.
+                   códigos que encontró el chat; se marcan en azul con su insignia.
     terminos:      términos a resaltar dentro del texto.
     coincidencias: {código: [{'termino', 'campo'}]}, para resaltar palabras clave.
     """

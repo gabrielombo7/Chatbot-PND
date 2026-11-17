@@ -12,15 +12,15 @@ cada una:
                            palabras de uso corriente al vocabulario del documento
                            ("colegio" -> "infraestructura educativa").
 
-Se busca en tres campos: palabras clave, nombre de la estrategia y nombre del tema. La
-estrategia no tiene descripción; las descripciones de eje y tema sólo se muestran.
+Se busca en tres campos: palabras clave, nombre de la línea estratégica y nombre del tema. La
+línea estratégica no tiene descripción; las descripciones de eje y tema sólo se muestran.
 
 El orden sale de un score que se explica en una línea: por cada término que coincide,
 peso del campo x multiplicador de origen x especificidad del término (un término que
-aparece en muchas estrategias vale poco; uno muy raro no pasa de cierto tope). Lo calcula esta función, no el modelo: el
+aparece en muchas líneas estratégicas vale poco; uno muy raro no pasa de cierto tope). Lo calcula esta función, no el modelo: el
 modelo sólo elige los términos. Los niveles (Más cercanas / Relacionadas) son umbrales sobre
 ese score, relativos al mejor; lo que queda por debajo no se muestra. «En la descripción»
-es una categoría aparte, sin puntaje: estrategias cuyo tema menciona el término en su descripción. data/reglas.csv restringe grupos de estrategias (p. ej.
+es una categoría aparte, sin puntaje: líneas estratégicas cuyo tema menciona el término en su descripción. data/reglas.csv restringe grupos de líneas estratégicas (p. ej.
 el eje 7, sólo para desastres) a las preguntas que mencionen sus palabras disparadoras.
 
 Cada resultado viene con la evidencia: qué término coincidió y en qué campo.
@@ -42,7 +42,7 @@ ARCHIVO_REGLAS = DATA / "reglas.csv"
 # Peso de cada campo: el orden de preferencia declarado.
 PESO_CAMPO = {
     "palabras clave": 4,
-    "nombre de la estrategia": 4,
+    "nombre de la línea estratégica": 4,
     "tema": 3,
 }
 
@@ -118,7 +118,7 @@ COL_EJES = ["Número del eje", "Nombre del eje", "Descripción del eje"]
 COL_TEMAS = ["Número del tema", "Número del eje", "Nombre del tema",
              "Descripción del tema", "Palabras clave del tema"]
 COL_ESTRATEGIAS = ["Número de la estrategia", "Número del tema", "Nombre de la estrategia",
-                   "Palabras clave (4 a 10)", "Palabras clave cortas (máx. 5)"]
+                   "Palabras clave (4 a 10)"]
 
 _TABLAS = None
 
@@ -179,11 +179,9 @@ def _validar_estructura(ejes, temas, est) -> None:
             continue
         if not c.startswith(t + "."):
             p.append(f"Estrategia {c}: su código no empieza por el del tema {t}")
-        kw, cortas = _lista(e["Palabras clave (4 a 10)"]), _lista(e["Palabras clave cortas (máx. 5)"])
-        if not 4 <= len(kw) <= 10:
-            p.append(f"Estrategia {c}: tiene {len(kw)} palabras clave (deben ser de 4 a 10)")
-        if not 1 <= len(cortas) <= 5:
-            p.append(f"Estrategia {c}: tiene {len(cortas)} palabras clave cortas (de 1 a 5)")
+        kw = _lista(e["Palabras clave (4 a 10)"])
+        if not 1 <= len(kw) <= 10:
+            p.append(f"Estrategia {c}: tiene {len(kw)} palabras clave (deben ser de 1 a 10)")
         if len({normalizar(k) for k in kw}) < len(kw):
             p.append(f"Estrategia {c}: palabras clave repetidas")
     for col_n, col_nombre, nombres in (("Número del eje", "Nombre del eje", nombres_eje),
@@ -234,7 +232,6 @@ def cargar_estructura() -> pd.DataFrame:
             "tema_desc": t["Descripción del tema"], "tema_kw_lista": _lista(t["Palabras clave del tema"]),
             "est_n": r["Número de la estrategia"], "est": r["Nombre de la estrategia"],
             "kw": r["Palabras clave (4 a 10)"], "kw_lista": _lista(r["Palabras clave (4 a 10)"]),
-            "kw_cortas_lista": _lista(r["Palabras clave cortas (máx. 5)"]),
             "codigo_anterior": anterior,
         })
     df = pd.DataFrame(filas)
@@ -262,7 +259,6 @@ def cargar_estructura() -> pd.DataFrame:
         "estrategias": pd.DataFrame({"estrategia_id": df["est_n"], "tema_id": df["tema_n"],
                                      "eje_id": df["eje_n"].astype(str), "nombre": df["est"],
                                      "palabras_clave": df["kw_lista"],
-                                     "palabras_clave_cortas": df["kw_cortas_lista"],
                                      "codigo_anterior": df["codigo_anterior"]}),
     }
     _EST = df
@@ -346,7 +342,7 @@ def expandir(terminos) -> list:
 # ---------------------------------------------------------------------------
 _CAMPOS = [
     ("palabras clave", "_kw", "_r_kw"),
-    ("nombre de la estrategia", "_est", "_r_est"),
+    ("nombre de la línea estratégica", "_est", "_r_est"),
     ("tema", "_tema", "_r_tema"),
 ]
 
@@ -422,7 +418,7 @@ def validar_reglas() -> None:
     for r in cargar_reglas():
         if not _codigos_de(df, r["aplica_a"]):
             raise ValueError(
-                f"data/reglas.csv: no encontré estrategias para «{r['aplica_a']}». "
+                f"data/reglas.csv: no encontré líneas estratégicas para «{r['aplica_a']}». "
                 "Usa 'eje 7', 'tema 7.1' o un código como '7.1.3'. Si una nota lleva "
                 "comas, debe ir entre comillas.")
 
@@ -541,7 +537,6 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
             "eje": f"{fila['eje_n']}. {fila['eje']}",
             "tema": f"{fila['tema_n']} {fila['tema']}".strip(),
             "palabras_clave": fila["kw_lista"],
-            "palabras_clave_cortas": fila["kw_cortas_lista"],
             "n_terminos_coincidentes": len({ev["termino"] for ev in evidencia}),
             "score": round(score, 3),
             "coincidencias": evidencia,
@@ -636,14 +631,14 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
         "mensaje": "",
     }
     if not n_marcadas:
-        salida["mensaje"] = "Ninguna estrategia contiene esos términos."
+        salida["mensaje"] = "Ninguna línea estratégica contiene esos términos."
     elif not cercanas:
-        salida["mensaje"] = ("Ninguna estrategia coincide en sus palabras clave, su nombre ni su "
+        salida["mensaje"] = ("Ninguna línea estratégica coincide en sus palabras clave, su nombre ni su "
                              "tema; estas mencionan el término en la descripción de su tema.")
         salida["en_descripcion"] = [
             {"codigo": c, "estrategia": por_codigo[c]["est"],
              "tema": f"{por_codigo[c]['tema_n']} {por_codigo[c]['tema']}",
-             "palabras_clave_cortas": por_codigo[c]["kw_cortas_lista"]}
+             "palabras_clave": por_codigo[c]["kw_lista"]}
             for c, _ in descripcion[:MAX_CHAT]]
     return salida
 
@@ -676,7 +671,7 @@ def detalle_estrategia(codigo: str) -> dict:
     return {
         "codigo": r["est_n"], "estrategia": r["est"],
         "eje": f"{r['eje_n']}. {r['eje']}", "tema": f"{r['tema_n']} {r['tema']}".strip(),
-        "palabras_clave": r["kw_lista"], "palabras_clave_cortas": r["kw_cortas_lista"],
+        "palabras_clave": r["kw_lista"],
         "descripcion_del_tema": r["tema_desc"],
     }
 

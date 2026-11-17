@@ -1,11 +1,11 @@
 # Orientador del PND 2026-2030
 
 Página que ayuda a ubicar una idea, un proyecto o un programa dentro de la
-estructura del Plan Nacional de Desarrollo: **eje → tema → estrategia**.
+estructura del Plan Nacional de Desarrollo: **eje → tema → línea estratégica**.
 
 Tiene dos secciones. A la izquierda, un visor del árbol con la descripción de cada
-eje y de cada tema y las palabras clave de cada estrategia. A la derecha, un chat que traduce una pregunta
-en lenguaje corriente a términos del documento y devuelve las estrategias donde
+eje y de cada tema y las palabras clave de cada línea estratégica. A la derecha, un chat que traduce una pregunta
+en lenguaje corriente a términos del documento y devuelve las líneas estratégicas donde
 esos términos aparecen. El chat se pliega hacia el lado para dejarle todo el
 ancho al árbol.
 
@@ -31,7 +31,7 @@ El árbol y su buscador funcionan sin llave. La llave sólo hace falta para el c
 | `motor.py` | Herramientas que ve el modelo, reglas de comportamiento y ciclo de conversación. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La estructura. Se lee directo del Excel. |
 | `data/sinonimos.csv` | Diccionario editable de palabra corriente → término del documento. |
-| `data/reglas.csv` | Reglas editables: grupos de estrategias (p. ej. el eje 7) que solo se sugieren si la pregunta menciona sus palabras disparadoras. |
+| `data/reglas.csv` | Reglas editables: grupos de líneas estratégicas (p. ej. el eje 7) que solo se sugieren si la pregunta menciona sus palabras disparadoras. |
 
 ## Cómo busca
 
@@ -51,7 +51,7 @@ no dice *colegio*, dice *infraestructura educativa*; no dice *beca*, dice
 *financiación estudiantil*.
 
 El orden de los resultados sale de un score que se explica en una línea. Se busca en
-tres campos —**palabras clave, nombre de la estrategia y tema**— y, por cada término
+tres campos —**palabras clave, nombre de la línea estratégica y tema**— y, por cada término
 que coincide, se suma:
 
 > peso del campo × multiplicador de origen × especificidad del término
@@ -59,11 +59,11 @@ que coincide, se suma:
 - **Peso del campo:** palabras clave 4, nombre 4, tema 3.
 - **Multiplicador de origen:** ×2 para los términos que llegan a la búsqueda (los de
   la persona y los que el modelo traduce); ×1 para los que agrega el diccionario.
-- **Especificidad:** un término que aparece en muchas estrategias dice poco. Vale
-  ln(total ÷ estrategias donde aparece), contando como mínimo 3 estrategias para
+- **Especificidad:** un término que aparece en muchas líneas estratégicas dice poco. Vale
+  ln(total ÷ líneas estratégicas donde aparece), contando como mínimo 3 líneas estratégicas para
   que una sola palabra rara no domine: un término que está en 3 de las 122
-  estrategias vale 3,7; uno que está en 26 vale 1,5.
-- **Las estrategias no tienen descripción:** sólo palabras clave. Las descripciones y
+  líneas estratégicas vale 3,7; uno que está en 26 vale 1,5.
+- **Las líneas estratégicas no tienen descripción:** sólo palabras clave. Las descripciones y
   las palabras clave de eje y tema se muestran en el árbol, pero no puntúan.
 
 Ese score lo calcula `buscador.py`, no el modelo: el modelo sólo elige los términos
@@ -76,9 +76,9 @@ que no depende del score:
 |---|---|---|
 | **Más cercanas** | ≥ 80 % del mejor score (los empates con el mejor siempre entran) | respuesta del chat (hasta 5) y árbol |
 | **Relacionadas** | ≥ 30 % del mejor, hasta 10 | árbol |
-| **En la descripción** | estrategias sin coincidencia propia cuyo **tema** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
+| **En la descripción** | líneas estratégicas sin coincidencia propia cuyo **tema** menciona el término en su descripción; sin puntaje, y sólo con los términos de la persona o del modelo (no con los del diccionario) | árbol |
 
-Lo que coincide por debajo del 30 % no se muestra. Dos estrategias con el mismo score
+Lo que coincide por debajo del 30 % no se muestra. Dos líneas estratégicas con el mismo score
 reciben el mismo trato: nunca se elige entre ellas. Los umbrales y los topes están al
 comienzo de `buscador.py` (`UMBRAL_CERCANAS`, `UMBRAL_RELACIONADAS`, `MAX_CHAT`,
 `MAX_RELACIONADAS`).
@@ -90,10 +90,10 @@ concretan («Infraestructura deportiva», «Infraestructura cultural»…). El c
 da muchos resultados y pregunta de qué tipo, y el árbol muestra todo de todos modos.
 Una palabra suelta se busca siempre, sin pedir aclaración antes.
 
-**Reglas (`data/reglas.csv`).** Hay grupos de estrategias que solo tienen sentido para
+**Reglas (`data/reglas.csv`).** Hay grupos de líneas estratégicas que solo tienen sentido para
 ciertas preguntas. Hoy: el **eje 7** (reconstrucción tras el sismo) solo se sugiere si
 la pregunta menciona un desastre —terremoto, incendio, inundación…—; si no, sus
-estrategias no se muestran y la respuesta lo avisa en «Notas». El archivo tiene tres
+líneas estratégicas no se muestran y la respuesta lo avisa en «Notas». El archivo tiene tres
 columnas: `aplica_a` (`eje 7`, `tema 7.1` o un código `7.1.3`), `palabras_disparadoras`
 (separadas por `;`) y `nota` (si lleva comas, entre comillas). Se edita en Excel; si
 apunta a algo que no existe, la aplicación avisa al arrancar.
@@ -101,8 +101,8 @@ apunta a algo que no existe, la aplicación avisa al arrancar.
 Cada resultado viene con la evidencia —qué término coincidió y en qué campo— y la
 interfaz la muestra. La respuesta del chat trae las «Más cercanas» y, debajo, el
 desplegable «Notas» con la documentación de esa búsqueda: sinónimos agregados, reglas
-que actuaron, cuántas estrategias hay en cada categoría y cómo se calcula el orden. En
-el árbol, todas las marcadas se pintan en amarillo con su insignia; después de cada
+que actuaron, cuántas líneas estratégicas hay en cada categoría y cómo se calcula el orden. En
+el árbol, todas las marcadas se pintan en azul con su insignia; después de cada
 respuesta el árbol queda en «Más cercanas» (ficha abierta, con sus palabras clave
 resaltadas) y los botones «Mostrar: Más cercanas · Relacionadas · En la descripción ·
 Todos» (junto a Plegar/Desplegar) cambian de grupo. La descripción de cada eje y tema
@@ -124,7 +124,7 @@ búsqueda y redactar lo que devolvió la herramienta.
 
 Las consecuencias importan:
 
-- No puede inventar una estrategia, porque nunca recibió la lista.
+- No puede inventar una línea estratégica, porque nunca recibió la lista.
 - Si la búsqueda no encuentra nada, lo dice; no tiene con qué rellenar.
 - Los códigos y nombres que escribe son los que le devolvió `buscador.py`.
 
@@ -136,10 +136,11 @@ poner un tope de gasto en la consola de Anthropic.
 **Cuando cambie la estructura:** reemplaza
 `data/Estructura_PND_Palabras_claves.xlsx` por la versión nueva y reinicia la
 aplicación. Se leen tres hojas por nombre: `VF_Ejes` (eje, descripción), `VF_Temas`
-(tema, descripción, palabras clave) y `VF_Estructura` (estrategia, palabras clave de 4 a
-10 y «cortas» de hasta 5). No hay nada codificado a mano, ni siquiera cuántos ejes,
-temas o estrategias hay. Al arrancar se valida que todo cuadre (que cada tema exista,
-que los códigos encajen, 4–10 palabras clave, descripciones completas…) y, si algo
+(tema, descripción) y `VF_Estructura` (línea estratégica y su única lista de palabras clave, de 1 a 10).
+**La fuente oficial es el anexo técnico del PDF «Audiencias Públicas PPI 2027-2030»**: de allí salen los nombres,
+las descripciones de ejes y temas y las palabras clave del libro (3.1.6 y 7.1.2 traen sólo 3 en el PDF). No hay nada codificado a mano, ni siquiera cuántos ejes,
+temas o líneas estratégicas hay. Al arrancar se valida que todo cuadre (que cada tema exista,
+que los códigos encajen, 1–10 palabras clave, descripciones completas…) y, si algo
 falla, la aplicación lo dice con un mensaje claro en vez de fallar en silencio.
 
 **Cuando una búsqueda no encuentre algo que debería:** casi siempre es que falta
@@ -157,7 +158,7 @@ de comprobarlo es buscar la palabra en el buscador del árbol, que es literal.
   estructura y palabras clave. El análisis de la matriz de iniciativas está en
   `analisis_iniciativas/`.
 - No pondera, no decide ni recomienda. Describe dónde aparecen las palabras.
-- Los códigos de estrategia de esta versión **no son los de versiones anteriores**
+- Los códigos de línea estratégica de esta versión **no son los de versiones anteriores**
   (se reutilizaron y renumeraron); lo que se enlace a la estructura, como los
   indicadores, debe usar los códigos nuevos. La columna «Código anterior» del libro
   sirve sólo para una migración puntual.

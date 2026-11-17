@@ -3,11 +3,11 @@ app.py — Orientador del PND 2026-2030 (interfaz Streamlit)
 ===========================================================
 Dos secciones en una página:
 
-  Izquierda  Visor del árbol eje → tema → estrategia, con búsqueda literal
+  Izquierda  Visor del árbol eje → tema → línea estratégica, con búsqueda literal
              propia. Es un componente HTML autocontenido (arbol.py), así que
              plegar y desplegar no recarga la aplicación.
   Derecha    Chat que traduce una pregunta en lenguaje corriente a términos del
-             documento y devuelve las estrategias donde esos términos aparecen.
+             documento y devuelve las líneas estratégicas donde esos términos aparecen.
              Se puede plegar hacia el lado para dejarle todo el ancho al árbol.
 
 Para correrlo:
@@ -43,53 +43,84 @@ MENSAJES_PARA_SCROLL = 4   # con menos mensajes el recuadro se ajusta al conteni
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-  .stApp{background:#FBFBFC}
-  .block-container{padding-top:1.5rem;padding-bottom:1rem;max-width:1900px;
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Nunito+Sans:wght@300;400;600;700&display=swap');
+  /* Paleta de la cartilla de las audiencias públicas del PPI 2027-2030 (DNP). */
+  :root{
+    --fondo:#F7F7F7; --tarjeta:#EEECEB; --texto:#585758; --texto-fuerte:#3C3D3E;
+    --marino-oscuro:#103760; --marino:#1B3E6C; --tabla:#2C4779;
+    --azul-medio:#0F5987; --azul-texto:#347399; --azul-claro:#578CAB;
+    --celeste:#63AADE; --celeste-2:#468BC2; --linea:#DCDAD8;
+  }
+  .stApp{background:var(--fondo)}
+  /* barra superior de cuatro tonos, como en la cartilla */
+  .stApp::before{content:"";position:fixed;top:0;left:0;right:0;height:5px;z-index:999;
+    background:linear-gradient(90deg,var(--marino-oscuro) 0 25%,var(--tabla) 25% 50%,
+      var(--celeste-2) 50% 75%,var(--celeste) 75% 100%)}
+  .block-container{padding-top:1.7rem;padding-bottom:1rem;max-width:1900px;
     padding-left:1.25rem !important;padding-right:1.25rem !important}
-  html,body,[class*="st-"],.stMarkdown{font-family:"IBM Plex Sans",system-ui,sans-serif}
+  html,body,[class*="st-"],.stMarkdown{font-family:"Nunito Sans",system-ui,sans-serif}
   /* Los iconos de Streamlit son una fuente de ligaduras: si se les pisa la fuente,
      se ve el nombre del icono (p. ej. «_arrow_right») en vez del dibujo. */
   [data-testid="stIconMaterial"]{font-family:"Material Symbols Rounded" !important}
   #MainMenu,footer,header{visibility:hidden}
 
-  .titulo{font-family:"Source Serif 4",Georgia,serif;font-size:27px;font-weight:600;
-    letter-spacing:-.012em;color:#15181D;margin:0 0 3px;line-height:1.2}
-  .bajada{font-size:14px;color:#5B6472;margin:0;max-width:74ch;line-height:1.5}
-  .regla{border:0;border-top:1px solid #E3E6EB;margin:16px 0 10px}
+  /* encabezado: línea vertical azul + etiqueta, título en Poppins */
+  .cab{border-left:3px solid var(--celeste-2);padding-left:10px;margin:0 0 8px;
+    font-size:13px;font-weight:600;color:var(--azul-claro);line-height:1.25}
+  .stMarkdown p.titulo{font-family:"Poppins",sans-serif;font-size:28px;font-weight:700;
+    letter-spacing:-.01em;color:var(--marino);margin:0 0 4px;line-height:1.2}
+  .stMarkdown p.bajada{font-size:16.5px;font-weight:300;color:var(--texto);margin:0;max-width:78ch;line-height:1.55}
+  /* palabras resaltadas en azul, como en las frases de la cartilla */
+  .rz{color:var(--azul-texto);font-weight:700}
+  .rz-f{background:var(--azul-claro);color:#fff;font-weight:600;padding:1px 8px;border-radius:4px}
+  /* recuadro «PILAS»: franja azul marino con la etiqueta vertical */
+  .pilas{display:flex;align-items:center;gap:16px;margin:14px 0 6px;padding:12px 18px;
+    background:linear-gradient(100deg,var(--marino-oscuro),var(--marino) 60%,var(--tabla));
+    border-radius:10px;color:#fff}
+  .pilas-et{font-family:"Poppins",sans-serif;font-weight:700;font-size:13px;letter-spacing:.12em;
+    writing-mode:vertical-rl;transform:rotate(180deg);color:#fff;opacity:.95}
+  .stMarkdown .pilas p{margin:0;font-size:15.5px;line-height:1.5;color:#fff}
+  .stMarkdown .pilas b{color:#fff;font-weight:700}
 
-  .rotulo-col{font-size:12.5px;font-weight:600;color:#5B6472;margin:0 0 2px}
-  .ayuda-col{font-size:12.5px;color:#8A929E;margin:0 0 10px;line-height:1.45}
+  /* encabezados de sección numerados: «01.» + título entre dos líneas */
+  .sec{display:flex;align-items:baseline;gap:8px;margin:6px 0 8px;padding:6px 0;
+    border-top:1px solid var(--marino);border-bottom:1px solid var(--marino)}
+  .sec-n{font-family:"Poppins",sans-serif;font-weight:700;font-size:20px;color:#A7B9CB}
+  .sec-t{font-family:"Poppins",sans-serif;font-weight:600;font-size:20px;color:var(--marino)}
+  .stMarkdown .sec-t,.stMarkdown .sec-n{line-height:1.2}
+  .stMarkdown p.ayuda-col{font-size:15px;font-weight:300;color:var(--texto);margin:0 0 10px;line-height:1.55}
 
-  .aviso{font-size:12.5px;color:#6B6252;background:#FDFAF0;border:1px solid #EDE2C4;
-    border-radius:7px;padding:9px 12px;line-height:1.5;margin:0 0 12px}
+  .aviso{font-size:14px;color:var(--marino);background:var(--tarjeta);border:1px solid var(--linea);
+    border-radius:10px;padding:10px 14px;line-height:1.5;margin:0 0 12px}
 
   /* Tooltip de ayuda: sólo CSS, se abre con el cursor o con el foco (también al tocar). */
   .tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
-    width:16px;height:16px;margin-left:7px;border:1px solid #C9CED6;border-radius:50%;
-    color:#8A929E;font:600 10.5px "IBM Plex Sans",sans-serif;cursor:help;
-    vertical-align:middle;outline:none}
-  .tip:hover,.tip:focus{color:#15181D;border-color:#8A929E}
+    width:18px;height:18px;margin-left:7px;border:1px solid var(--azul-claro);border-radius:50%;
+    color:var(--azul-claro);font:700 11px "Nunito Sans",sans-serif;cursor:help;
+    vertical-align:middle;outline:none;align-self:center}
+  .tip:hover,.tip:focus{color:#fff;background:var(--marino);border-color:var(--marino)}
   .tip-cuerpo{display:none;position:absolute;top:calc(100% + 8px);left:-10px;z-index:60;
-    width:min(340px,78vw);background:#15181D;color:#F2F4F7;
-    font:400 12.5px/1.5 "IBM Plex Sans",sans-serif;padding:10px 12px;border-radius:8px;
-    box-shadow:0 6px 20px rgba(21,24,29,.28);text-align:left;cursor:default}
+    width:min(340px,78vw);background:var(--marino-oscuro);color:#EAF1F8;
+    font:400 13.5px/1.5 "Nunito Sans",sans-serif;padding:11px 14px;border-radius:10px;
+    box-shadow:0 8px 24px rgba(16,55,96,.3);text-align:left;cursor:default}
   .tip.der .tip-cuerpo{left:auto;right:-10px}
   .tip:hover .tip-cuerpo,.tip:focus .tip-cuerpo{display:block}
-  .tip-cuerpo b{font-weight:600;color:#fff}
+  .tip-cuerpo b{font-weight:700;color:#fff}
   .tip-cuerpo .tp{display:block;margin:0 0 6px}
   .tip-cuerpo .tp:last-child{margin:0}
 
   div[data-testid="stChatMessage"]{background:transparent;padding:.35rem 0}
-  .stButton>button{font-family:"IBM Plex Sans",sans-serif;font-size:13.5px;
-    border-radius:7px;border:1px solid #E3E6EB;background:#fff;color:#333A45;
-    font-weight:500;transition:background .13s,color .13s}
-  .stButton>button:hover{background:#F2F4F7;color:#15181D;border-color:#D2D7DE}
+  .stMarkdown p,.stMarkdown li{color:var(--texto-fuerte)}
+  .stMarkdown code{background:#E3EEF7;color:var(--azul-medio);border-radius:5px;padding:1px 7px;font-size:.9em}
+  .stButton>button{font-family:"Nunito Sans",sans-serif;font-size:15px;
+    border-radius:10px;border:1px solid var(--linea);background:#fff;color:var(--marino);
+    font-weight:600;transition:background .13s,color .13s}
+  .stButton>button:hover{background:#EAF1F8;color:var(--marino-oscuro);border-color:var(--azul-claro)}
   div[data-testid="stForm"]{border:0;padding:0}
-  .stTextInput input{font-size:14px;border-radius:7px}
-  div[data-testid="stExpander"] details{border:1px solid #E3E6EB;border-radius:7px;
-    background:#fff}
-  .stCaption,div[data-testid="stCaptionContainer"]{font-size:12.5px;color:#8A929E}
+  .stTextInput input{font-size:15px;border-radius:10px}
+  div[data-testid="stExpander"] details{border:1px solid var(--linea);border-radius:10px;
+    background:var(--tarjeta)}
+  .stCaption,div[data-testid="stCaptionContainer"]{font-size:13.5px;color:var(--texto)}
 </style>
 """, unsafe_allow_html=True)
 
@@ -135,10 +166,14 @@ st.session_state.setdefault("terminos", [])
 enc_izq, enc_der = st.columns([1, 0.17], gap="small")
 with enc_izq:
     st.markdown(
+        '<div class="cab">Audiencias públicas<br>PPI 2027-2030</div>'
         '<p class="titulo">Orientador del Plan Nacional de Desarrollo 2026-2030</p>'
         f'<p class="bajada">Dónde se ubicaría una idea en la estructura del Plan: '
-        f'{CAT["n_ejes"]} ejes, {CAT["n_temas"]} temas y {CAT["n_estrategias"]} '
-        f'estrategias. Cada resultado es una opción sugerida.</p>',
+        f'<span class="rz">{CAT["n_ejes"]} ejes</span>, <span class="rz">{CAT["n_temas"]} temas</span> '
+        f'y <span class="rz">{CAT["n_estrategias"]} líneas estratégicas</span>.</p>'
+        '<div class="pilas"><span class="pilas-et">PILAS</span>'
+        '<p>Cada resultado es una <b>opción sugerida</b> que te ayuda a identificar las '
+        '<b>líneas estratégicas</b> del catálogo de ejes, temas y líneas estratégicas.</p></div>',
         unsafe_allow_html=True)
 with enc_der:
     st.write("")
@@ -147,7 +182,6 @@ with enc_der:
         st.session_state.chat_abierto = not st.session_state.chat_abierto
         st.rerun()
 
-st.markdown('<hr class="regla">', unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +193,7 @@ def tip(cuerpo, lado="izq"):
 
 
 TIP_ARBOL = (
-    "<span class=\"tp\">Cuando el chat responde, el árbol marca en amarillo las estrategias "
+    "<span class=\"tp\">Cuando el chat responde, el árbol marca en azul las líneas estratégicas "
     "en tres grupos:</span>"
     "<span class=\"tp\"><b>Más cercanas:</b> la mejor, o las mejores si empatan. "
     "<b>Relacionadas:</b> parecidas. <b>En la descripción:</b> su tema menciona la "
@@ -185,9 +219,10 @@ def incrustar(html, alto):
 
 
 def pintar_arbol():
-    st.markdown('<div class="rotulo-col">Árbol del Plan' + tip(TIP_ARBOL) + '</div>'
-                '<p class="ayuda-col">Abre un eje o un tema, y haz clic en una estrategia para ver '
-                'sus palabras clave. El buscador de esta sección es literal: encuentra la '
+    st.markdown('<div class="sec"><span class="sec-n">01.</span><span class="sec-t">Árbol del Plan</span>'
+                + tip(TIP_ARBOL) + '</div>'
+                '<p class="ayuda-col">Abre un eje o un tema, y haz clic en una línea estratégica para ver '
+                'sus <span class="rz">palabras clave</span>. El buscador de esta sección es literal: encuentra la '
                 'palabra sólo si está escrita igual.</p>',
                 unsafe_allow_html=True)
     incrustar(arbol.render(DF, st.session_state.niveles, st.session_state.terminos,
@@ -219,7 +254,7 @@ def pintar_notas(busquedas):
     ult = busquedas[-1]
     niv = ult.get("niveles") or {}
     if ult.get("n_resultados"):
-        notas.append(f"Marcadas {ult['n_resultados']} de las {CAT['n_estrategias']} estrategias: "
+        notas.append(f"Marcadas {ult['n_resultados']} de las {CAT['n_estrategias']} líneas estratégicas: "
                      f"Más cercanas ({len(niv.get('cercanas', []))}), "
                      f"Relacionadas ({len(niv.get('relacionadas', []))}) y "
                      f"En la descripción ({len(niv.get('descripcion', []))}).")
@@ -227,18 +262,18 @@ def pintar_notas(busquedas):
             notas.append(f"Otras {ult['n_omitidas']} coinciden muy poco (menos del "
                          f"{round(100 * B.UMBRAL_RELACIONADAS)} % del mejor puntaje) y no se muestran.")
     else:
-        notas.append(f"Ninguna de las {CAT['n_estrategias']} estrategias contiene esos términos.")
+        notas.append(f"Ninguna de las {CAT['n_estrategias']} líneas estratégicas contiene esos términos.")
 
     pw = B.PESO_CAMPO
     notas.append(
         "Cómo se ordena: por cada término que coincide se suma el peso del campo "
-        f"(palabras clave {pw['palabras clave']}, nombre {pw['nombre de la estrategia']}, "
+        f"(palabras clave {pw['palabras clave']}, nombre {pw['nombre de la línea estratégica']}, "
         f"tema {pw['tema']}) × el origen del término "
         "(×2 los de tu pregunta, ×1 los sinónimos) × su especificidad (un término que "
-        "aparece en muchas estrategias vale menos). "
+        "aparece en muchas líneas estratégicas vale menos). "
         f"Más cercanas: desde el {round(100 * B.UMBRAL_CERCANAS)} % del mejor puntaje; "
         f"Relacionadas: desde el {round(100 * B.UMBRAL_RELACIONADAS)} %. «En la descripción» "
-        "no tiene puntaje: son estrategias cuyo tema menciona la palabra en su descripción.")
+        "no tiene puntaje: son líneas estratégicas cuyo tema menciona la palabra en su descripción.")
 
     with st.expander("Notas"):
         for n in notas:
@@ -286,9 +321,10 @@ def procesar(cli, pregunta):
 
 
 def pintar_chat():
-    st.markdown('<div class="rotulo-col">Dónde ubico mi idea' + tip(TIP_CHAT, "der") + '</div>'
+    st.markdown('<div class="sec"><span class="sec-n">02.</span><span class="sec-t">Dónde ubico mi idea</span>'
+                + tip(TIP_CHAT, "der") + '</div>'
                 '<p class="ayuda-col">Escribe tu idea, proyecto o programa con tus propias '
-                'palabras y te muestro en qué estrategias del Plan podría ubicarse.</p>',
+                'palabras y te muestro en qué líneas estratégicas del Plan podría ubicarse.</p>',
                 unsafe_allow_html=True)
 
     cli = cliente()
@@ -305,7 +341,7 @@ def pintar_chat():
     zona = st.container()
 
     if not st.session_state.historial and not st.session_state.get("pendiente"):
-        for ejemplo in ["Quiero construir un colegio, ¿a qué estrategia me remito?",
+        for ejemplo in ["Quiero construir un colegio, ¿a qué línea estratégica me remito?",
                         "¿Dónde van las becas de estudio?",
                         "Acueducto y alcantarillado en un municipio pequeño",
                         "Un programa de empleo para jóvenes rurales"]:

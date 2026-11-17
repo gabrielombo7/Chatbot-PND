@@ -1,9 +1,10 @@
 # Fuerza el tema claro: la página tiene su propio fondo claro y, sin esto, un
 # teléfono o navegador en modo oscuro mezcla texto claro sobre fondo claro.
+# Colores de la cartilla de las audiencias públicas del PPI 2027-2030.
 [theme]
 base = "light"
-primaryColor = "#1F4FD8"
-backgroundColor = "#FBFBFC"
-secondaryBackgroundColor = "#FFFFFF"
-textColor = "#15181D"
+primaryColor = "#1B3E6C"
+backgroundColor = "#F7F7F7"
+secondaryBackgroundColor = "#EEECEB"
+textColor = "#3C3D3E"
 font = "sans serif"

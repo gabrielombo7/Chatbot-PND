@@ -7,16 +7,16 @@ proyecto sin tener que leer todo el código primero. Léelo antes de tocar nada.
 
 Una página que ayuda a ubicar una idea, un proyecto o un programa dentro de la
 estructura del Plan Nacional de Desarrollo 2026-2030: **eje → tema →
-estrategia**. La hace Gabriel (DNP, Dirección de Programación de Inversiones
+línea estratégica**. La hace Gabriel (DNP, Dirección de Programación de Inversiones
 Públicas) como ejercicio preliminar y sencillo — esto **orienta**, no define.
 
 Dos secciones:
 - **Árbol** — visor plegable de la estructura completa, con buscador propio
   (literal), descripción de cada eje y tema, y fichas con las palabras clave de cada
-  estrategia (las estrategias no tienen descripción).
+  línea estratégica (las líneas estratégicas no tienen descripción).
 - **Chat** — la persona describe su idea en lenguaje corriente; el asistente
   traduce eso a términos del documento, busca por coincidencia de palabras y
-  devuelve las estrategias donde esos términos aparecen, con la evidencia de
+  devuelve las líneas estratégicas donde esos términos aparecen, con la evidencia de
   dónde coincidió cada uno.
 
 ## 2. Estado actual (2026-11-10)
@@ -78,7 +78,7 @@ en cada uno**. Hay tres caminos razonables:
 2. **Todo en GitHub Pages, sin el LLM.** Se porta `buscador.py` a JavaScript
    (capas 1 y 2 son mecánicas; la capa 3 es leer el mismo `sinonimos.csv` como
    JSON). La persona escribe palabras sueltas en vez de una pregunta en
-   lenguaje natural, y la página le muestra las estrategias donde esas palabras
+   lenguaje natural, y la página le muestra las líneas estratégicas donde esas palabras
    aparecen, con la misma evidencia de hoy. **Se pierde** la traducción
    automática de "colegio" a "infraestructura educativa" salvo que la persona
    ya conozca el diccionario, y se pierde la redacción en prosa. **Se gana**
@@ -110,10 +110,10 @@ la respeta y conviene que cualquier cambio futuro también la respete.
 
 El modelo **no tiene el contenido del PND en memoria.** El *system prompt* de
 `motor.py` solo lleva los nombres de los 7 ejes — ni los temas, ni las
-estrategias, ni las palabras clave. Esto es deliberado: si el modelo tuviera
+líneas estratégicas, ni las palabras clave. Esto es deliberado: si el modelo tuviera
 la estructura completa en el prompt, podría "recordar mal" un código o
-mezclar dos estrategias parecidas. Al no tener nada, no tiene de dónde
-inventar: cada estrategia que menciona viene literalmente del resultado JSON
+mezclar dos líneas estratégicas parecidas. Al no tener nada, no tiene de dónde
+inventar: cada línea estratégica que menciona viene literalmente del resultado JSON
 que le devolvió una herramienta, en la misma llamada.
 
 El ciclo (`motor.responder`) es: Claude pide `buscar_estrategias(terminos)` →
@@ -140,14 +140,14 @@ Todo es comparación de texto, en tres capas, cada una explicable en una frase:
   de términos de la derecha separados por `;`.
 
 El **orden de los resultados** sale de un score declarado, no aprendido (función
-`buscar_estrategias`). Se busca en palabras clave, nombre de la estrategia y nombre del
-tema; las descripciones de eje y tema y las palabras clave del tema sólo se muestran
+`buscar_estrategias`). Se busca en palabras clave, nombre de la línea estratégica y nombre del
+tema; las descripciones de eje y tema sólo se muestran (las palabras clave del tema no se usan ni se muestran)
 (sumarlas solo añadía ruido). Por cada término que coincide se suma: peso del campo
 (`PESO_CAMPO`: clave 4, nombre 4, tema 3) × multiplicador de origen (×2 los términos
 que llegan a la herramienta, ×1 los que agrega el diccionario de sinónimos) ×
-especificidad (ln(total ÷ estrategias donde aparece el término): un término frecuente
-como «infraestructura», en 26 de 122 estrategias, vale poco). Un término que aparece
-en menos de 3 estrategias cuenta como si apareciera en 3 (`MIN_ESTRATEGIAS_ESPECIFICIDAD`),
+especificidad (ln(total ÷ líneas estratégicas donde aparece el término): un término frecuente
+como «infraestructura», en 26 de 122 líneas estratégicas, vale poco). Un término que aparece
+en menos de 3 líneas estratégicas cuenta como si apareciera en 3 (`MIN_ESTRATEGIAS_ESPECIFICIDAD`),
 para que una sola palabra rara no domine; no resuelve los homónimos (ver sección 8).
 
 El modelo **no puntúa ni ordena**: sólo elige los términos de búsqueda; a partir
@@ -157,8 +157,8 @@ rankings distintos para la misma pregunta.
 Las **categorías** (claves `cercanas`, `relacionadas`, `descripcion`) son: *Más cercanas*
 (≥ 80 % del mejor score, incluidos los empates con el mejor; hasta 5 en el chat),
 *Relacionadas* (≥ 30 %, hasta 10, `MAX_RELACIONADAS`) y *En la descripción* (sin puntaje:
-estrategias sin coincidencia propia cuyo tema menciona el término en su descripción —la del
-eje no cuenta: marcaría todas sus estrategias—,
+líneas estratégicas sin coincidencia propia cuyo tema menciona el término en su descripción —la del
+eje no cuenta: marcaría todas sus líneas estratégicas—,
 buscando sólo con los términos «escrito» —los del usuario o el modelo—, porque los
 sinónimos genéricos del diccionario la inundarían). Lo que queda por debajo del 30 % no se
 muestra (`n_omitidas`). Mismo score = misma categoría; cuando un tope partiría un empate,
@@ -171,7 +171,7 @@ contienen los términos que coincidieron y dicen algo más (`_sugerencias`). El 
 preguntar de qué tipo con esas sugerencias.
 
 Las **reglas** (`data/reglas.csv`, columnas `aplica_a`, `palabras_disparadoras`,
-`nota`) restringen grupos de estrategias: si la pregunta no menciona ninguna palabra
+`nota`) restringen grupos de líneas estratégicas: si la pregunta no menciona ninguna palabra
 disparadora (se compara por raíz y sólo con los términos que llegaron a la búsqueda,
 no con los del diccionario), el grupo no se muestra y la interfaz lo avisa en «Notas».
 Hoy: el eje 7 (reconstrucción tras el sismo) sólo se sugiere si se habla de un
@@ -183,7 +183,7 @@ a algo que no existe.
 el modelo, junto con `n_cercanas`, `muy_amplia`, `sugerencias` y, si no hay cercanas,
 `en_descripcion`) y, sólo para la interfaz, `niveles`, `coincidencias`, `avisos_reglas` y
 `n_omitidas` (`motor.SOLO_INTERFAZ` las quita antes de llamar al modelo). El árbol marca
-todas en amarillo con su insignia, deja preseleccionada «Más cercanas» con su ficha
+todas en azul con su insignia, deja preseleccionada «Más cercanas» con su ficha
 abierta, resalta sus palabras clave que coincidieron (con la misma regla de raíz del
 buscador), esconde las descripciones de eje y tema tras un botón «i» y trae botones para ver
 una categoría a la vez (o todo).
@@ -192,7 +192,7 @@ Cada resultado trae la evidencia completa (qué término, en qué campo, por cu�
 capa), y eso es lo que la interfaz muestra y lo que el LLM usa para redactar, sin
 tener que inventar justificaciones.
 
-**Por qué importa esta separación:** todo lo que decide *qué estrategias
+**Por qué importa esta separación:** todo lo que decide *qué líneas estratégicas
 aparecen* es determinista, está en `buscador.py`, se puede probar sin llamar a
 ningún API y no cambia entre una ejecución y otra. Lo único no determinista es
 la *redacción* del texto final. Si algún día se audita por qué el orientador
@@ -206,7 +206,7 @@ sugirió algo, la respuesta siempre está en `buscador.py`, nunca en el modelo.
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.iframe`, o con `st.components.v1.html` en versiones antiguas de Streamlit). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga y valida el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt*, y el ciclo de conversación (`responder`). Modelo: `claude-haiku-4-5`. |
-| `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad, versión final. Tres hojas por nombre: `VF_Ejes` (descripción), `VF_Temas` (descripción y palabras clave) y `VF_Estructura` (estrategia, palabras clave 4–10 y «cortas» ≤5, código anterior). Las otras hojas del libro se ignoran. `buscador.cargar_estructura()` las valida y las une en una fila por estrategia; `cargar_tablas()` devuelve las tres tablas con llaves por código (para el tablero y los indicadores). Si cambia la estructura, se reemplaza este archivo y se reinicia la app. |
+| `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad, versión final. Tres hojas por nombre: `VF_Ejes` (descripción), `VF_Temas` (descripción) y `VF_Estructura` (línea estratégica, una sola lista de 1 a 10 palabras clave, código anterior). El contenido proviene del anexo técnico del PDF «Audiencias Públicas PPI 2027-2030», tomado como versión oficial. Las otras hojas del libro se ignoran. `buscador.cargar_estructura()` las valida y las une en una fila por línea estratégica; `cargar_tablas()` devuelve las tres tablas con llaves por código (para el tablero y los indicadores). Si cambia la estructura, se reemplaza este archivo y se reinicia la app. |
 | `data/sinonimos.csv` | El diccionario de la capa 3. Columnas: `palabra`, `terminos_documento` (separados por `;`), `nota`. ~110 filas ya verificadas contra el Excel (cada término de destino existe de verdad en el documento). |
 | `requirements.txt` | `streamlit`, `anthropic`, `pandas`, `openpyxl`. |
 | `.streamlit/config.toml` | Tema visual (colores, tipografía). |
@@ -217,7 +217,7 @@ Hay además una carpeta hermana `analisis_iniciativas/` (fuera de este repo,
 en `Chatbot/analisis_iniciativas/`) con el análisis de la segunda fuente —la
 matriz de iniciativas e indicadores— y su homologación con este árbol. No es
 parte de la app; es el insumo que explica, en `informe.html`, por qué ciertas
-estrategias no tienen iniciativas enlazadas todavía y por qué una idea puede
+líneas estratégicas no tienen iniciativas enlazadas todavía y por qué una idea puede
 encajar en más de un eje. Quien vaya a enriquecer el orientador con
 iniciativas/indicadores debe partir de ahí.
 
@@ -225,7 +225,7 @@ iniciativas/indicadores debe partir de ahí.
 
 1. **El modelo nunca recibe la estructura completa.** Si se le ocurre a
    alguien "optimizar" metiendo todo el árbol en el *system prompt* para que
-   el modelo "ya sepa" las estrategias, se rompe la garantía de que no
+   el modelo "ya sepa" las líneas estratégicas, se rompe la garantía de que no
    inventa. La única fuente de verdad en cada respuesta es el resultado de la
    herramienta en esa misma llamada.
 2. **Toda sugerencia trae evidencia** (término, campo, capa). Si se agrega una
@@ -274,7 +274,7 @@ Pasos, en orden:
   duplicada; agregar `.gitignore`.
 - Configurar el secret `ANTHROPIC_API_KEY` en Streamlit Cloud si se sigue ese
   camino.
-- De `analisis_iniciativas/homologacion_estrategias.csv`: 36 estrategias con
+- De `analisis_iniciativas/homologacion_estrategias.csv`: 36 líneas estratégicas con
   homologación "débil" y 15 sin correspondencia, pendientes de revisión
   humana antes de usarse para enriquecer el árbol con iniciativas reales.
 - Decidir entre las 3 opciones de la sección 3 (Streamlit / GitHub Pages sin
@@ -282,13 +282,25 @@ Pasos, en orden:
 
 ### Nota sobre la estructura final (2026-11-11)
 
-- Los **códigos no son estables** entre la versión anterior y esta: 14 estrategias nuevas reutilizan códigos
+- Los **códigos no son estables** entre la versión anterior y esta: 14 líneas estratégicas nuevas reutilizan códigos
   que eran de otra y 24 se renumeraron. Lo que se enlace a la estructura (indicadores, iniciativas) debe
   usar los códigos nuevos; `codigo_anterior` solo sirve para migrar una vez.
 - **Homónimos:** el buscador es literal, así que «escuela» encuentra 1.2.1 por su palabra clave
   «Escuela Superior de Administración Pública (ESAP)». El tope de especificidad no lo corrige; lo
-  resolvería una lista de exclusiones editable (término + estrategia) o un ajuste de contenido.
-- **Vacío de contenido:** fuera del eje 7 ninguna estrategia trae «infraestructura educativa», así que
-  «colegio» empata varias estrategias de educación por la palabra `educacion`.
+  resolvería una lista de exclusiones editable (término + línea estratégica) o un ajuste de contenido.
+- **Vacío de contenido:** fuera del eje 7 ninguna línea estratégica trae «infraestructura educativa», así que
+  «colegio» empata varias líneas estratégicas de educación por la palabra `educacion`.
 - `sinonimos.csv`: 25 de 139 destinos no coinciden hoy de forma literal; 4 filas quedaron sin ningún
   destino que exista (`credito educativo`, `luz`, `electricidad`, `sgp`).
+
+## Identidad visual (cartilla de las audiencias públicas)
+
+La página sigue la cartilla del PDF «Audiencias Públicas PPI 2027-2030»: texto gris `#585758`,
+azul marino `#1B3E6C`/`#103760`, azules de apoyo `#347399`, `#468BC2` y `#63AADE`, fondo `#F7F7F7`
+y tarjetas `#EEECEB`. Títulos en Poppins y cuerpo en Nunito Sans (Google Fonts); barra superior de
+cuatro tonos; secciones numeradas («01.», «02.»); recuadro «PILAS» en azul marino; frases con las
+palabras clave resaltadas en azul (`.rz` en `app.py`); ejes como barras azul marino y filtros en
+forma de píldora. El vocabulario de la interfaz es **«línea estratégica»** (antes «estrategia»);
+internamente los nombres de funciones y tablas (`buscar_estrategias`, `estrategia_id`) no cambian.
+Las marcas del árbol son azules (antes amarillas) y no hay un color por eje: los ejes usan tonos de la
+misma familia azul (`COLOR_EJE` en `arbol.py`).
