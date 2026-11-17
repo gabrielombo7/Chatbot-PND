@@ -16,6 +16,7 @@ Para correrlo:
     streamlit run app.py
 """
 
+import importlib
 import os
 
 import anthropic
@@ -33,6 +34,15 @@ import motor
 st.set_page_config(page_title="Orientador del PND 2026-2030",
                    page_icon="🧭", layout="wide",
                    initial_sidebar_state="collapsed")
+
+# Tras un despliegue, Streamlit Cloud puede conservar en memoria versiones viejas de los
+# módulos (y de los datos ya cargados), y la app falla con «module 'buscador' has no attribute
+# …». Si cambió algo en disco desde que se cargaron, se recargan: no hace falta reiniciar a mano.
+_firma = B.firma_archivos() if hasattr(B, "firma_archivos") else None
+if _firma is None or getattr(B, "_FIRMA", None) != _firma:
+    for _m in (B, arbol, motor):     # buscador primero: motor lo usa al cargarse
+        importlib.reload(_m)
+    st.cache_resource.clear()
 
 ALTO_ARBOL = 840
 ALTO_CHAT = 640      # alto de la conversación cuando ya es larga (entonces tiene su propio scroll)

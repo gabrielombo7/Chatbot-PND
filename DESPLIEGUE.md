@@ -35,3 +35,12 @@
 5. **Si la cuenta se bloquea por fair-use:** dejar de pushear/rebootear y seguir el proceso
    de soporte de Streamlit (desde el panel de la app o discuss.streamlit.io) en vez de
    reintentar varias veces, porque los reintentos repetidos agravan el bloqueo.
+
+## Error «module 'buscador' has no attribute …» tras un despliegue
+
+Pasa cuando Streamlit Cloud conserva en memoria una versión vieja de un módulo (`buscador.py`,
+`motor.py` o `arbol.py`) mientras corre el `app.py` nuevo. `app.py` ya lo detecta: compara la
+fecha de los archivos de código y de datos con la que tenían al cargarse (`buscador.firma_archivos`)
+y, si cambió algo, recarga los módulos y vacía la caché. Normalmente no hay que hacer nada. Si
+el error apareciera igual (por ejemplo, justo en el despliegue que agrega este candado), un único
+«Reboot app» lo resuelve.

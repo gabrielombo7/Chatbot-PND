@@ -39,6 +39,22 @@ ARCHIVO_ESTRUCTURA = DATA / "Estructura_PND_Palabras_claves.xlsx"
 ARCHIVO_SINONIMOS = DATA / "sinonimos.csv"
 ARCHIVO_REGLAS = DATA / "reglas.csv"
 
+
+def firma_archivos() -> tuple:
+    """Fecha de modificación del código y de los datos de los que depende la aplicación.
+
+    app.py la compara con la que tenía este módulo al cargarse: si cambió algo en disco
+    (un despliegue nuevo), recarga los módulos y vacía la caché, en vez de seguir con
+    versiones viejas en memoria. Sin esto, Streamlit Cloud puede quedarse con un módulo
+    viejo y fallar con «module 'buscador' has no attribute …» hasta reiniciar la app a mano.
+    """
+    carpeta = Path(__file__).parent
+    rutas = [carpeta / n for n in ("arbol.py", "buscador.py", "motor.py")] + sorted(DATA.glob("*"))
+    return tuple((r.name, r.stat().st_mtime_ns) for r in rutas if r.exists())
+
+
+_FIRMA = firma_archivos()
+
 # Peso de cada campo: el orden de preferencia declarado.
 PESO_CAMPO = {
     "palabras clave": 4,
