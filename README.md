@@ -86,8 +86,9 @@ Lo que coincide por debajo del 30 % no se muestra. Los umbrales y los topes est�
 comienzo de `buscador.py` (`UMBRAL_CERCANAS`, `MAX_CERCANAS`, `UMBRAL_RELACIONADAS`,
 `MAX_RELACIONADAS`).
 
-**Consultas amplias.** Si 3 o más líneas llegan al umbral de «Más cercanas» (por ejemplo
-con «infraestructura»), la consulta no distingue y el buscador lo señala (`muy_amplia`) y
+**Consultas amplias.** Si 3 o más líneas llegan al umbral de «Más cercanas» y son de temas
+distintos (por ejemplo con «infraestructura»: defensa, salud, cultura), la consulta no distingue
+y el buscador lo señala (`muy_amplia`) y
 ofrece, tal cual están en el PND, las palabras clave que la concretan («Infraestructura
 deportiva», «Infraestructura cultural»…). La respuesta dice que da muchos resultados y
 pregunta de qué tipo, y el árbol muestra todo de todos modos. Una palabra suelta se busca
@@ -135,9 +136,16 @@ que devolvió `buscador.py`. Dos candados evitan que el modelo, que conoce el ca
 presente algo que la búsqueda no encontró:
 
 - La respuesta con resultados sale de los datos; el texto del modelo no entra.
-- Si el modelo contesta sin buscar y nombra un código o una línea que ninguna herramienta
-  devolvió (ni se mostró antes en la conversación), ese texto se descarta y se busca con
-  las palabras de la persona.
+- El modelo **siempre responde con una herramienta** (`tool_choice` «any»): `buscar_estrategias`
+  para una idea o proyecto, o `contestar` sólo para pedir un dato que falta, saludar o decir
+  que el mensaje no trata del Plan. No puede contestar «de memoria» con una línea del catálogo.
+- Si su `contestar` nombra un código o una línea que ninguna herramienta devolvió (ni se
+  mostró antes en la conversación), ese texto se descarta y se le obliga a buscar.
+- Las frases de dos o más palabras de `data/sinonimos.csv` que escriba la persona («placa
+  huella») se agregan siempre a la búsqueda, aunque el modelo las haya reformulado. Las de una
+  sola palabra se dejan a su criterio («casa» en «casa de gobierno» no es vivienda).
+- Si aun así no hay una respuesta utilizable, se busca con las palabras de la persona (las
+  frases del diccionario más sus palabras útiles, sin verbos de trámite ni la pregunta misma).
 
 Además, con resultados no hace falta una segunda llamada al modelo: cada consulta cuesta
 una llamada, y el catálogo, que no cambia, se guarda en caché.

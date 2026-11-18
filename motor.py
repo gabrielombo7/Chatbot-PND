@@ -81,6 +81,23 @@ TOOLS = [
         },
     },
     {
+        "name": "contestar",
+        "description": (
+            "Responde con un texto breve, SIN buscar. Úsala sólo cuando el mensaje no es una idea "
+            "o un proyecto por ubicar: (a) falta un dato esencial —una sigla o un nombre propio que "
+            "no dice qué es el proyecto— y haces una pregunta; (b) un saludo o un agradecimiento; "
+            "(c) no tiene que ver con ubicar algo en el Plan. Nunca incluyas códigos ni nombres de "
+            "líneas estratégicas."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "texto": {"type": "string", "description": "El mensaje para la persona, breve."},
+            },
+            "required": ["texto"],
+        },
+    },
+    {
         "name": "detalle_estrategia",
         "description": (
             "Ficha completa de una línea estratégica por su código, por ejemplo '2.1.3'. "
@@ -128,7 +145,9 @@ TU TRABAJO
 Eres el traductor entre el lenguaje de la persona y el vocabulario del Plan. No redactas los \
 resultados: la interfaz muestra las líneas estratégicas que devuelve la herramienta \
 buscar_estrategias, con su código, su nombre y sus palabras clave tal como están en el \
-documento. Tú sólo eliges los términos de búsqueda y, cuando falta un dato, haces una pregunta.
+documento. Tú sólo eliges los términos de búsqueda y, cuando falta un dato, haces una pregunta. \
+SIEMPRE respondes llamando una herramienta: buscar_estrategias para una idea o proyecto; \
+contestar sólo para pedir un dato, saludar o decir que el mensaje no trata de ubicar algo en el Plan.
 
 CATÁLOGO OFICIAL DEL PLAN ({CAT['n_ejes']} ejes, {CAT['n_temas']} temas, {CAT['n_estrategias']} líneas \
 estratégicas). Cada línea va como «código nombre | palabras clave». Sirve para elegir términos \
@@ -137,7 +156,8 @@ que existen en el documento, nada más.
 
 CÓMO TRABAJAS
 1. Para cada idea o proyecto llamas buscar_estrategias de inmediato, incluso si la persona \
-escribe una sola palabra común (por ejemplo «infraestructura»). El texto puede ser el nombre \
+escribe una sola palabra común (por ejemplo «infraestructura») o pregunta directamente «¿a qué \
+línea estratégica me remito?»: tú no respondes con una línea, buscas. El texto puede ser el nombre \
 de un proyecto, con municipios, verbos y palabras de trámite («construcción», «mejoramiento», \
 «estudios y diseños»): ignóralos y quédate con lo que el proyecto ES: qué se construye o se \
 hace, qué servicio presta, a quién sirve.
@@ -152,12 +172,12 @@ palabra entre los términos.
 4. Si la búsqueda no devuelve resultados, prueba una vez más con términos más generales. Si \
 sigue vacía, llama listar_vocabulario y di qué vocabulario existe.
 5. Si el texto no dice qué es el proyecto (una sigla o un nombre propio, como «AVEM Fase 1»), \
-no busques: pide en una frase qué se construye o a quién sirve.
+no busques: usa contestar para pedir en una frase qué se construye o a quién sirve.
 
 REGLAS ESTRICTAS
 - Nunca escribes códigos ni nombres de líneas estratégicas, ni siquiera los del catálogo: sólo \
 la interfaz los muestra, y sólo los que devolvió la búsqueda. Si los escribes, tu respuesta se \
-descarta.
+descarta y se te obliga a buscar.
 - No evalúas si la idea es buena, no recomiendas inversiones ni montos, no afirmas que algo \
 "se debe" radicar en un lugar.
 - Si la pregunta no es sobre ubicar algo en el Plan, lo dices en una frase y no respondes con \
@@ -245,6 +265,9 @@ def texto_busqueda(s: dict) -> str:
         for r in resultados:
             partes.append(_bloque(r["codigo"], r["estrategia"], r["palabras_clave"],
                                   _evidencia(r.get("coincidencias") or [], r["palabras_clave"])))
+        if not s.get("muy_amplia") and s.get("n_cercanas", 0) > len(resultados):
+            partes.append(f"Hay {s['n_cercanas']} líneas estratégicas muy cercanas; aquí van "
+                          f"{len(resultados)} y el resto está en el árbol, en «Relacionadas».")
     elif s.get("en_descripcion"):
         partes.append("Ninguna línea estratégica coincide en sus palabras clave ni en su nombre; "
                       "estas mencionan el término en la descripción de su tema:")
@@ -313,7 +336,7 @@ def _cerrar(texto_modelo, llamadas, terminos, vistos, historial):
 
     # El modelo no devolvió nada utilizable, o nombró líneas sin buscarlas: se busca con
     # las palabras de la persona y se responde con lo que salga.
-    terms = B.palabras_utiles(_ultima_pregunta(historial))
+    terms = B.terminos_del_texto(_ultima_pregunta(historial))
     if not terms:
         return MSG_SIN_RESULTADOS, llamadas, sorted(terminos)
     s = B.buscar_estrategias(terms)
@@ -325,6 +348,10 @@ def _cerrar(texto_modelo, llamadas, terminos, vistos, historial):
 
 def responder(client, historial):
     """Claude elige los términos -> se ejecuta la búsqueda -> el código redacta la respuesta.
+
+    Claude siempre responde con una herramienta (tool_choice «any»): buscar, o «contestar» para
+    pedir un dato o decir que el mensaje no trata del Plan. Así no puede contestar de memoria
+    con una línea del catálogo. Si su «contestar» nombra líneas ajenas, se le obliga a buscar.
 
     Devuelve (texto, llamadas, terminos):
       llamadas: detalle de cada llamada a herramienta, para la interfaz
@@ -338,11 +365,17 @@ def responder(client, historial):
                 for m in mensajes[-MAX_TURNOS_HISTORIAL:]]
     # Códigos que el modelo puede mencionar sin buscar: los que ya se mostraron antes.
     vistos = {c for m in mensajes if m["role"] == "assistant" for c in _RE_CODIGO.findall(m["content"])}
+    # Frases del diccionario («placa huella») que la persona escribió: se añaden a la búsqueda
+    # aunque el modelo las haya reformulado.
+    frases = B.frases_del_diccionario(_ultima_pregunta(historial))
+    forzar = None            # herramienta obligada tras un «contestar» con líneas ajenas
 
     for _ in range(MAX_VUELTAS):
+        eleccion = {"type": "tool", "name": forzar} if forzar else {"type": "any"}
+        forzar = None
         resp = client.messages.create(
             model=MODELO, max_tokens=MAX_TOKENS, system=SYSTEM_BLOQUES,
-            tools=TOOLS, messages=mensajes,
+            tools=TOOLS, tool_choice=eleccion, messages=mensajes,
         )
 
         if resp.stop_reason != "tool_use":
@@ -350,17 +383,36 @@ def responder(client, historial):
             return _cerrar(texto, llamadas, terminos, vistos, historial)
 
         mensajes.append({"role": "assistant", "content": resp.content})
-        resultados = []
+        resultados, contestado = [], None
         for bloque in resp.content:
             if bloque.type != "tool_use":
                 continue
+            if bloque.name == "contestar":
+                texto = str((bloque.input or {}).get("texto", "")).strip()
+                if texto and not lineas_ajenas(texto, vistos):
+                    contestado = texto
+                    resultados.append({"type": "tool_result", "tool_use_id": bloque.id, "content": "ok"})
+                else:
+                    forzar = "buscar_estrategias"
+                    resultados.append({
+                        "type": "tool_result", "tool_use_id": bloque.id, "is_error": True,
+                        "content": "No puedes nombrar líneas estratégicas ni responder vacío: "
+                                   "llama buscar_estrategias para ubicar la idea."})
+                continue
+
+            entrada = dict(bloque.input or {})
+            if bloque.name == "buscar_estrategias":
+                ts = entrada.get("terminos") or []
+                ts = [ts] if isinstance(ts, str) else list(ts)
+                ya = {B.normalizar(t) for t in ts}
+                entrada["terminos"] = ts + [f for f in frases if f not in ya]
             func = DISPATCH.get(bloque.name)
             try:
-                salida = func(**bloque.input) if func else {"error": "Herramienta desconocida."}
+                salida = func(**entrada) if func else {"error": "Herramienta desconocida."}
             except Exception as e:
                 salida = {"error": f"Fallo al ejecutar {bloque.name}: {e}"}
 
-            llamadas.append({"herramienta": bloque.name, "argumentos": bloque.input,
+            llamadas.append({"herramienta": bloque.name, "argumentos": entrada,
                              "resultado": salida})
             para_modelo = salida
             if isinstance(salida, dict):
@@ -380,6 +432,8 @@ def responder(client, historial):
                and (ll["resultado"].get("n_resultados") or ll["resultado"].get("codigo"))
                for ll in llamadas):
             return _cerrar("", llamadas, terminos, vistos, historial)
+        if contestado:
+            return contestado, llamadas, sorted(terminos)
 
     return MSG_DEMASIADAS_VUELTAS, llamadas, sorted(terminos)
 

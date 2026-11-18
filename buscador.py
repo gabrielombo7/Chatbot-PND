@@ -117,6 +117,32 @@ def raiz(palabra: str) -> str:
     return palabra
 
 
+# Palabras de un enunciado que no dicen qué es el proyecto: los verbos de trámite y la propia
+# pregunta («¿a qué línea estratégica me remito?»). Sólo se descartan al armar términos a partir
+# del texto de la persona sin modelo (terminos_del_texto).
+GENERICAS = set("""construir construccion construcciones hacer hago ubicar ubico ubica ubicarse linea lineas
+estrategica estrategicas estrategia estrategias proyecto proyectos programa programas iniciativa
+iniciativas mejoramiento ampliacion rehabilitacion adecuacion mantenimiento optimizacion estudios
+disenos interventoria municipio municipios departamento fase etapa obras obra""".split())
+
+
+def frases_del_diccionario(texto: str) -> list:
+    """Palabras del diccionario de sinónimos formadas por 2 o más palabras («placa huella»)
+    que aparecen completas en el texto. Una frase así se pierde si se parte en palabras
+    sueltas; las de una sola palabra se dejan al criterio del modelo (p. ej. «casa» en
+    «casa de gobierno» no es vivienda)."""
+    t = " " + normalizar(texto) + " "
+    return [k for k in cargar_sinonimos() if " " in k and f" {k} " in t]
+
+
+def terminos_del_texto(texto: str) -> list:
+    """Términos de búsqueda a partir del texto de la persona, sin modelo: las frases del
+    diccionario que aparezcan y sus palabras útiles (sin verbos de trámite ni la pregunta)."""
+    frases = frases_del_diccionario(texto)
+    usadas = {w for f in frases for w in f.split()}
+    return frases + [w for w in palabras_utiles(texto) if w not in GENERICAS and w not in usadas]
+
+
 def palabras_utiles(texto: str) -> list:
     """Palabras de 4+ letras que no están en la lista de palabras vacías."""
     vistas, salida = set(), []
@@ -643,7 +669,11 @@ def buscar_estrategias(terminos, usar_raiz: bool = True) -> dict:
     # Consulta muy amplia (p. ej. una sola palabra como «infraestructura»): se avisa y se
     # ofrecen, tal cual están en el PND, las palabras clave que la concretan.
     n_marcadas = len(cercanas) + len(relacionadas) + len(descripcion)
-    muy_amplia = len(cercanas_todas) >= MAX_CERCANAS     # la consulta no distingue: hay que concretarla
+    # La consulta no distingue —hay que concretarla— si 3 o más líneas llegan al umbral y son de
+    # temas distintos (p. ej. «infraestructura»: defensa, salud, cultura). Si son del mismo tema
+    # (p. ej. un acueducto: 4.5.4, 4.5.6, 4.5.7), se muestran sin preguntar.
+    temas_cercanas = {r["codigo"].rsplit(".", 1)[0] for r in cercanas_todas}
+    muy_amplia = len(cercanas_todas) >= MAX_CERCANAS and len(temas_cercanas) >= 2
     sugerencias = []
     if muy_amplia:
         coincidieron = sorted({ev["termino"] for r in cercanas + relacionadas

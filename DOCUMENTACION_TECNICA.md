@@ -116,16 +116,25 @@ nombre líneas que la búsqueda no devolvió, así que el diseño lo impide en c
 1. Con resultados, la respuesta la escribe `motor.texto_busqueda` desde el resultado de
    `buscar_estrategias` (código, nombre y palabras clave tal cual, y dónde coincidió cada
    una). El texto del modelo no entra, y no hace falta una segunda llamada al modelo.
-2. Si el modelo contesta sin buscar (o no devuelve nada) y su texto contiene un código de línea
-   que ninguna herramienta devolvió, o el nombre de una línea que no devolvió ninguna
-   (`motor.lineas_ajenas`), el texto se descarta y se busca con las palabras de la persona.
-   Los códigos que ya se mostraron antes en la conversación se pueden volver a mencionar.
+2. El modelo **siempre responde con una herramienta** (`tool_choice` «any»): `buscar_estrategias`,
+   `listar_vocabulario`, `detalle_estrategia` o `contestar` (texto breve para pedir un dato, saludar
+   o decir que no trata del Plan). Si su `contestar` contiene un código de línea que ninguna
+   herramienta devolvió, o el nombre de una línea que no devolvió ninguna
+   (`motor.lineas_ajenas`), se rechaza con un `tool_result` de error y la siguiente llamada obliga a
+   `buscar_estrategias` (`tool_choice` por nombre). Los códigos que ya se mostraron antes en la
+   conversación se pueden volver a mencionar. Es el defecto que se corrigió el 18 de noviembre:
+   sin esto, el modelo podía contestar de memoria con una línea del catálogo, el texto se
+   descartaba y la búsqueda de respaldo con palabras sueltas daba nada («placa huella») o ruido.
+   Además, las frases de 2 o más palabras del diccionario que escribió la persona
+   (`buscador.frases_del_diccionario`) se agregan a los términos de toda búsqueda.
 3. Una ficha pedida por código se escribe también desde los datos (`texto_ficha`).
 
 El ciclo (`motor.responder`) es: Claude pide `buscar_estrategias(terminos)` → Python ejecuta la
 búsqueda real → si hay resultados, el texto sale de los datos (`_cerrar`); si no, el resultado
-vuelve a Claude como *tool_result* para que reintente (o llame `listar_vocabulario`). Hay un
-tope de 6 vueltas para que un ciclo que no converge no cuelgue la conversación.
+vuelve a Claude como *tool_result* para que reintente (o llame `listar_vocabulario`). Si nada
+sirve, `_cerrar` busca con las palabras de la persona (`buscador.terminos_del_texto`: frases del
+diccionario más palabras útiles, sin verbos de trámite ni la pregunta misma). Hay un tope de 6
+vueltas para que un ciclo que no converge no cuelgue la conversación.
 
 ### El código de coincidencia exacta (`buscador.py`) hace todo lo demás
 
@@ -170,8 +179,9 @@ buscando sólo con los términos «escrito» —los del usuario o el modelo—, 
 sinónimos genéricos del diccionario la inundarían). Lo que queda por debajo del 30 % no se
 muestra (`n_omitidas`). Las constantes están al inicio de `buscador.py`.
 
-Una **consulta muy amplia** (`muy_amplia`: 3 o más líneas llegan al umbral de «Más cercanas»)
-trae `sugerencias`: palabras clave del PND, tal cual, que contienen los términos que
+Una **consulta muy amplia** (`muy_amplia`: 3 o más líneas llegan al umbral de «Más cercanas» y
+son de al menos 2 temas distintos; si son del mismo tema, p. ej. un acueducto, se muestran sin
+preguntar) trae `sugerencias`: palabras clave del PND, tal cual, que contienen los términos que
 coincidieron y dicen algo más (`_sugerencias`). El prompt de `motor.py` obliga a buscar aunque
 llegue una sola palabra, y `texto_busqueda` avisa que da muchos resultados y pregunta de qué
 tipo con esas sugerencias.
