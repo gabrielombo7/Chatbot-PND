@@ -369,21 +369,41 @@ Decisiones que conviene conocer:
 ### Clasificación de prueba de proyectos en las líneas estratégicas (Amazonas y «Amazonia»)
 
 `herramientas/clasificar_proyectos.py` ubica 63 proyectos (los 11 de Amazonas y las 52 iniciativas del encuentro
-regional «Amazonia») de dos maneras y escribe `data/Clasificacion_proyectos.xlsx`, que lee `proyectos.clasificacion()`:
+regional «Amazonia») de tres maneras y escribe `data/Clasificacion_proyectos.xlsx`, que lee `proyectos.clasificacion()`:
 
-- **Score:** `buscador.buscar_estrategias(buscador.terminos_del_texto(nombre))`, es decir, el motor con sólo las
-  palabras del nombre y sin el modelo. Es un piso: en la aplicación el modelo elige los términos.
+- **Orientador:** el flujo real de la aplicación (`motor.responder` con el modelo): el modelo elige los términos y
+  `buscador.buscar_estrategias` ubica. Una corrida; necesita `ANTHROPIC_API_KEY`.
+- **Solo score:** `buscar_estrategias(terminos_del_texto(nombre))`, con las palabras del nombre y sin el modelo. Es el piso.
 - **Claude:** una línea principal y alternativas razonables, leyendo el catálogo; es un criterio a revisar.
-- **¿Coinciden?:** Igual, Compatible (la del score es una alternativa), Entre sus más cercanas, Mismo tema,
+- **¿Coinciden?:** Igual, Compatible (la del orientador es una alternativa), Entre sus más cercanas, Mismo tema,
   Mismo eje, Distinta o Sin resultado.
 
-Resultado del 25 de noviembre de 2026 (63 proyectos): Igual 17, Compatible 9, Entre sus más cercanas 2, Mismo
-tema 9, Mismo eje 6, Distinta 19, Sin resultado 1; es decir, 26 (41 %) igual o compatible, 37 (59 %) en el mismo
-tema o mejor y 43 (68 %) en el mismo eje o mejor. En los 11 de Amazonas, sólo 1 igual. Causas de los fallos:
-(1) palabras genéricas del enunciado que coinciden por la raíz con líneas ajenas (por ejemplo «mejorar» con
-«Mejora normativa», 6.2.1, o con «Un Estado que gasta con calidad», 6.3.1, en 5 de los 19 distintos) o con palabras sueltas como «comunidades» y «sistemas»;
-(2) vocabulario que el Plan no usa («aeropuerto», «muelle», «carrera quinta», «sedes educativas») o que usa en
-una sola línea («acueducto» sólo está literal en 4.5.7, y gana a 4.5.4, «Agua potable», que es la que
-corresponde); (3) enunciados de política que el Plan nombra distinto. Descartar los verbos de proyecto del
-respaldo (`GENERICAS`) se probó y apenas cambió el resultado (mismo eje 38 -> 40 de 63; igual 17 -> 17), así que no se
-aplicó. Falta medir el modelo real con la misma lista.
+**Resultados con el modelo real (claude-haiku-4-5), 25 de noviembre de 2026.** Se usaron dos conjuntos: T1, los 63
+proyectos de arriba contra la clasificación de Claude, y T2, 29 proyectos del portafolio `BD_DNP_` (hoja del archivo
+de proyectos) contra una línea esperada por criterio. Como el modelo varía entre corridas, se compararon promedios:
+
+| | T1 igual o compatible (de 63) | T1 tema o mejor | T2 1.ª cercana correcta (de 29) |
+|---|---|---|---|
+| Solo score (palabras del nombre, sin modelo) | 26 (41 %) | 37 | 14 |
+| Versión anterior (modelo con catálogo, sin diccionario) | 39,5 (63 %) | 52 | 26,5 |
+| Versión enviada (con diccionario en el prompt) | 43,5 (69 %) | 53,5 | 25,0 |
+
+T1 mejora unos 4 proyectos; T2 queda igual dentro del ruido (cambian 4 o 5 ítems ambiguos, como 7.4.1 frente a 7.4.2).
+Lo que sí cambió, y se vio en las corridas: «placa huella» ya no hace que el modelo pregunte qué es (busca y da 5.1.7);
+«infraestructura» sola pregunta de qué tipo; y «Gasoducto Aguazul–Yopal» o «Muelle de Puerto Santander» ya no se toman
+por un nombre propio sin significado.
+
+**Qué se probó y se descartó** (cada cambio se midió con los términos que había elegido el modelo en 8 corridas
+guardadas, sin volver a llamarlo): contar una palabra clave una sola vez aunque coincidan dos términos con ella
+ayudaba a 2 proyectos con términos del modelo pero **empeoraba 5 con las palabras del nombre**, y el efecto con el
+modelo era de 0,6 proyectos: se quitó. Descartar las palabras de trámite («mejoramiento», «ampliación») de lo que
+manda el modelo: sin efecto. 21 filas nuevas de jerga de proyectos en el diccionario: sin efecto. La regla de las
+palabras cortas (que «gas natural» no coincida con «base natural») y que una frase del diccionario gane sobre sus
+palabras sí se dejaron: no cambian el promedio, pero corrigen fallos reales y no perjudican.
+
+**Dónde sigue fallando:** aeropuertos, muelles y puertos (el Plan no los nombra; el modelo elige 5.1.7 o 5.2.5 por
+«conectividad», y la referencia de Claude, 5.1.3, es discutible); términos genéricos que agrega el modelo
+(«conectividad», «infraestructura») y sacan del primer lugar a la línea correcta; y proyectos mixtos (vivienda con
+vías). El diccionario trae 7 filas sin ningún término que el Plan tenga escrito, que el modelo no ve y que conviene
+revisar o borrar: `credito educativo`, `luz`, `electricidad`, `regalias`, `sgp`, `joven` y `predio`; otras 36 tienen
+algún término que ya no existe con el libro oficial (`buscador.sinonimos_muertos()` las lista).

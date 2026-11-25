@@ -3,22 +3,25 @@ clasificar_proyectos.py — Compara dos maneras de ubicar proyectos en las líne
 =====================================================================================================
 Toma proyectos del Anexo 4 (data/Proyectos_Megaproyectos_Regionales.xlsx) y los ubica de dos maneras:
 
-  * **Score:** el motor del orientador (buscador.py) usando sólo las palabras del nombre del proyecto
-    (`terminos_del_texto`), sin el modelo de lenguaje. Es el piso: en la aplicación, el modelo elige
-    mejores términos, pero aquí no hay llave del API.
+  * **Orientador:** lo que hace la aplicación. El modelo de lenguaje (con el catálogo del Plan) elige los
+    términos de búsqueda a partir del nombre del proyecto y el score de buscador.py ubica las líneas. Se
+    corre con el modelo real, así que necesita ANTHROPIC_API_KEY en el entorno y **varía un poco entre
+    corridas** (el modelo no es determinista: unos 2 o 3 proyectos de 63 cambian de línea).
+    Sin llave se omite y la página muestra sólo el score con las palabras del nombre.
   * **Claude:** una clasificación hecha leyendo el catálogo del Plan (código, nombre, palabras clave y
     descripción del tema). Es un criterio, no una verdad: puede corregirse editando el libro que genera
     este script (data/Clasificacion_proyectos.xlsx), que es el que lee la página.
 
-Escribe data/Clasificacion_proyectos.xlsx con las dos ubicaciones, el criterio y si coinciden.
+También guarda el «solo score»: el motor con las palabras del nombre y sin modelo, que es el piso.
 
 Uso (desde la raíz del repo):
-    python herramientas/clasificar_proyectos.py
+    ANTHROPIC_API_KEY=... python herramientas/clasificar_proyectos.py
 """
 
 import datetime
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 
 import openpyxl
 import pandas as pd
@@ -102,10 +105,13 @@ CLASIFICACION_CLAUDE = {
 
 COLUMNAS = [
     ("N.°", 7), ("Nombre del proyecto", 70), ("Departamento o encuentro regional (PDF)", 22),
-    ("Sector (PDF)", 24), ("Palabras que usó el score (del nombre)", 34),
-    ("Score: línea más cercana", 11), ("Score: nombre de esa línea", 38), ("Score: otras más cercanas", 14),
+    ("Sector (PDF)", 24),
+    ("Orientador: términos que eligió el modelo", 34), ("Orientador: línea más cercana", 11),
+    ("Orientador: nombre de esa línea", 38), ("Orientador: otras más cercanas", 14),
     ("Claude: línea principal", 11), ("Claude: nombre de esa línea", 38), ("Claude: alternativas", 14),
     ("Claude: criterio", 40), ("¿Coinciden?", 18),
+    ("Solo score: línea más cercana", 11), ("Solo score: otras más cercanas", 14),
+    ("¿Coinciden? (solo score)", 18),
 ]
 AZUL, AZUL_CLARO = "1B3E6C", "347399"
 
@@ -113,16 +119,16 @@ tema = lambda c: ".".join(c.split(".")[:2])
 eje = lambda c: c.split(".")[0]
 
 
-def coincidencia(score_cercanas, principal, alternativas):
+def coincidencia(cercanas, principal, alternativas):
     """Igual / Compatible / Entre sus más cercanas / Mismo tema / Mismo eje / Distinta / Sin resultado."""
-    if not score_cercanas:
+    if not cercanas:
         return "Sin resultado"
-    primera = score_cercanas[0]
+    primera = cercanas[0]
     if primera == principal:
         return "Igual"
     if primera in alternativas:
         return "Compatible"
-    if any(c == principal or c in alternativas for c in score_cercanas):
+    if any(c == principal or c in alternativas for c in cercanas):
         return "Entre sus más cercanas"
     if tema(primera) == tema(principal):
         return "Mismo tema"
@@ -131,22 +137,58 @@ def coincidencia(score_cercanas, principal, alternativas):
     return "Distinta"
 
 
+def con_el_modelo(nombres: dict) -> dict:
+    """{N.°: (términos del modelo, líneas más cercanas)} con el flujo real de la aplicación."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("Sin ANTHROPIC_API_KEY: se omite el orientador (queda sólo el score con las palabras del nombre).")
+        return {}
+    import anthropic
+    import motor
+    cli = anthropic.Anthropic(max_retries=4)
+
+    def uno(item):
+        n, nombre = item
+        try:
+            _texto, llamadas, _t = motor.responder(cli, [{"role": "user", "content": nombre}])
+        except Exception as e:                                   # una falla no tumba la corrida
+            print(f"  proyecto {n}: {type(e).__name__}")
+            return n, ([], [])
+        busquedas = [ll for ll in llamadas if ll["herramienta"] == "buscar_estrategias"
+                     and isinstance(ll["resultado"], dict)]
+        ultima = next((b for b in reversed(busquedas) if b["resultado"].get("n_resultados")), None)
+        if not ultima:
+            return n, ([], [])
+        return n, (ultima["argumentos"].get("terminos") or [], ultima["resultado"]["niveles"]["cercanas"])
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        return dict(ex.map(uno, nombres.items()))
+
+
 def main():
     proy = pd.read_excel(ENTRADA, sheet_name="Proyectos", dtype=str).fillna("").set_index("N.°")
-    nombres = {r["est_n"]: r["est"] for _, r in B.cargar_estructura().iterrows()}
+    lineas = {r["est_n"]: r["est"] for _, r in B.cargar_estructura().iterrows()}
+    for n, (principal, alternativas, _) in CLASIFICACION_CLAUDE.items():
+        for c in [principal, *alternativas]:
+            assert c in lineas, f"código inexistente en el catálogo: {c}"
+    modelo = con_el_modelo({n: proy.loc[n]["Nombre del proyecto"] for n in CLASIFICACION_CLAUDE})
+    hay_modelo = bool(modelo)
+
     filas = []
     for n, (principal, alternativas, criterio) in CLASIFICACION_CLAUDE.items():
-        for c in [principal, *alternativas]:
-            assert c in nombres, f"código inexistente en el catálogo: {c}"
         p = proy.loc[n]
-        terminos = B.terminos_del_texto(p["Nombre del proyecto"])
-        res = B.buscar_estrategias(terminos)
-        cercanas = [x["codigo"] for x in res["resultados"]]
+        res = B.buscar_estrategias(B.terminos_del_texto(p["Nombre del proyecto"]))
+        solo_score = [x["codigo"] for x in res["resultados"]]
+        terminos, orientador = modelo.get(n, ([], []))
+        if not hay_modelo:                         # sin modelo, el «orientador» es el piso
+            orientador = solo_score
         filas.append([
             n, p["Nombre del proyecto"], p["Departamento o encuentro regional (PDF)"], p["Sector (PDF)"],
-            "; ".join(terminos), cercanas[0] if cercanas else "", nombres.get(cercanas[0], "") if cercanas else "",
-            "; ".join(cercanas[1:]), principal, nombres[principal], "; ".join(alternativas), criterio,
-            coincidencia(cercanas, principal, alternativas)])
+            "; ".join(terminos), orientador[0] if orientador else "",
+            lineas.get(orientador[0], "") if orientador else "", "; ".join(orientador[1:]),
+            principal, lineas[principal], "; ".join(alternativas), criterio,
+            coincidencia(orientador, principal, alternativas),
+            solo_score[0] if solo_score else "", "; ".join(solo_score[1:]),
+            coincidencia(solo_score, principal, alternativas)])
 
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -158,7 +200,7 @@ def main():
         ws.column_dimensions[get_column_letter(j)].width = ancho
         c = ws.cell(1, j)
         c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor=AZUL_CLARO if 6 <= j <= 8 else AZUL)
+        c.fill = PatternFill("solid", fgColor=AZUL_CLARO if 5 <= j <= 8 or j >= 14 else AZUL)
         c.alignment = Alignment(wrap_text=True, vertical="center")
     for fila in ws.iter_rows(min_row=2):
         for c in fila:
@@ -166,33 +208,37 @@ def main():
     ws.freeze_panes = "C2"
     ws.auto_filter.ref = ws.dimensions
 
-    cuenta = pd.Series([f[-1] for f in filas]).value_counts()
     total = len(filas)
+    orden = ("Igual", "Compatible", "Entre sus más cercanas", "Mismo tema", "Mismo eje", "Distinta", "Sin resultado")
+    cuenta = pd.Series([f[12] for f in filas]).value_counts()
+    cuenta_solo = pd.Series([f[15] for f in filas]).value_counts()
     nt = wb.create_sheet("Notas")
     notas = [
         ("Qué es esto", "Ubicación de algunos proyectos del Anexo 4 en las líneas estratégicas del Plan, de dos maneras."),
         ("Generado", datetime.date.today().isoformat() + " con herramientas/clasificar_proyectos.py"),
-        ("Score", "El motor del orientador (buscador.py) con sólo las palabras del nombre del proyecto, sin el modelo de "
-                  "lenguaje. Es el piso: en la aplicación el modelo elige mejores términos."),
+        ("Orientador", "Lo que hace la aplicación: el modelo de lenguaje elige los términos de búsqueda a partir del nombre "
+                       "y el score ubica las líneas. Una sola corrida: el modelo no es determinista y entre corridas "
+                       "cambian unos 2 o 3 proyectos de 63. " + ("" if hay_modelo else "(Esta versión se generó sin llave del API: la columna es el solo score.)")),
         ("Claude", "Clasificación hecha leyendo el catálogo del Plan. Es un criterio, no una verdad: se puede corregir "
                    "editando las columnas «Claude: …» de la hoja «Clasificación»; la página las lee tal cual. Si cambias "
-                   "la línea principal, cambia también «¿Coinciden?»."),
+                   "la línea principal, cambia también «¿Coinciden?» (hay que corregirlo a mano)."),
+        ("Solo score", "El motor con las palabras del nombre del proyecto y sin el modelo: el piso."),
         ("Proyectos clasificados", f"{total}"),
         ("", ""),
-        ("¿Coinciden? (score frente a Claude)", ""),
-        ("Igual", "La línea más cercana del score es la principal de Claude."),
-        ("Compatible", "La línea más cercana del score es una de las alternativas razonables de Claude."),
-        ("Entre sus más cercanas", "Claude coincide con alguna de las (hasta 3) más cercanas del score, pero no con la primera."),
-        ("Mismo tema / Mismo eje", "La primera del score cae en el mismo tema (p. ej. 4.5) o eje (p. ej. 4) que la de Claude."),
-        ("Distinta / Sin resultado", "Cae en otro eje, o el score no encontró nada."),
+        ("¿Coinciden? (frente a Claude)", ""),
+        ("Igual", "La línea más cercana es la principal de Claude."),
+        ("Compatible", "La línea más cercana es una de las alternativas razonables de Claude."),
+        ("Entre sus más cercanas", "Claude coincide con alguna de las (hasta 3) más cercanas, pero no con la primera."),
+        ("Mismo tema / Mismo eje", "La primera cae en el mismo tema (p. ej. 4.5) o eje (p. ej. 4) que la de Claude."),
+        ("Distinta / Sin resultado", "Cae en otro eje, o no encontró nada."),
         ("", ""),
-        ("Resultado", ""),
+        ("Resultado: orientador (modelo + score) / solo score", ""),
     ]
-    for etiqueta in ("Igual", "Compatible", "Entre sus más cercanas", "Mismo tema", "Mismo eje", "Distinta", "Sin resultado"):
-        notas.append((etiqueta, f"{int(cuenta.get(etiqueta, 0))} de {total}"))
+    for etiqueta in orden:
+        notas.append((etiqueta, f"{int(cuenta.get(etiqueta, 0))} de {total}   /   {int(cuenta_solo.get(etiqueta, 0))} de {total}"))
     for fila in notas:
         nt.append(list(fila))
-    nt.column_dimensions["A"].width = 38
+    nt.column_dimensions["A"].width = 44
     nt.column_dimensions["B"].width = 110
     for fila in nt.iter_rows():
         fila[0].font = Font(bold=True)
@@ -200,7 +246,8 @@ def main():
             c.alignment = Alignment(wrap_text=True, vertical="top")
     wb.save(SALIDA)
     print(f"{total} proyectos clasificados en {SALIDA}")
-    print(cuenta.to_dict())
+    print("orientador:", cuenta.to_dict())
+    print("solo score:", cuenta_solo.to_dict())
 
 
 if __name__ == "__main__":

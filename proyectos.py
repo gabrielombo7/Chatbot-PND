@@ -10,8 +10,9 @@ El libro trae las columnas del PDF tal cual y dos columnas para filtrar, ya norm
 Un proyecto de varios departamentos o sectores sale en cada uno.
 
 Algunos proyectos tienen además una clasificación de prueba en las líneas estratégicas del Plan,
-hecha de dos maneras (el score del orientador y Claude), en data/Clasificacion_proyectos.xlsx
-(herramientas/clasificar_proyectos.py). `clasificacion()` la devuelve por número de proyecto.
+hecha de dos maneras (el orientador —el modelo elige los términos y el score ubica las líneas— y
+Claude), en data/Clasificacion_proyectos.xlsx (herramientas/clasificar_proyectos.py).
+`clasificacion()` la devuelve por número de proyecto.
 """
 
 import unicodedata
@@ -120,7 +121,7 @@ def _codigos(texto: str) -> list:
 
 
 def clasificacion() -> dict:
-    """Clasificación de prueba de algunos proyectos, por «N.°» (texto): el score y Claude.
+    """Clasificación de prueba de algunos proyectos, por «N.°» (texto): el orientador y Claude.
     Devuelve {} si el archivo no existe: la página funciona igual sin ella."""
     global _CLASIF
     if _CLASIF is not None:
@@ -130,7 +131,8 @@ def clasificacion() -> dict:
         df = pd.read_excel(ARCHIVO_CLASIFICACION, sheet_name=HOJA_CLASIFICACION, dtype=str).fillna("")
         for _, r in df.iterrows():
             _CLASIF[r[COL_N].strip()] = {
-                "score": [c for c in [r["Score: línea más cercana"].strip()] + _codigos(r["Score: otras más cercanas"]) if c],
+                "orientador": [c for c in [r["Orientador: línea más cercana"].strip()]
+                               + _codigos(r["Orientador: otras más cercanas"]) if c],
                 "claude": r["Claude: línea principal"].strip(),
                 "alternativas": _codigos(r["Claude: alternativas"]),
                 "criterio": r["Claude: criterio"].strip(),

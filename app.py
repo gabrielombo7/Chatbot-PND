@@ -423,9 +423,10 @@ def pintar_proyectos():
         "equivalentes se agrupan (por ejemplo «Salud» y «Salud y Protección Social»); el sector "
         "original se ve en la lista.</span>"
         "<span class=\"tp\">Algunos proyectos (Amazonas y el encuentro regional «Amazonia») traen una "
-        "<b>clasificación de prueba</b> en las líneas estratégicas del Plan: <b>Score</b> es el motor del "
-        "orientador usando sólo las palabras del nombre (sin el modelo de lenguaje) y <b>Claude</b> es "
-        "una clasificación hecha leyendo el catálogo, a modo de criterio, no de verdad.</span>")
+        "<b>clasificación de prueba</b> en las líneas estratégicas del Plan: el <b>orientador</b> es lo que "
+        "hace la aplicación (el modelo elige los términos y el score ubica las líneas; una corrida, y el "
+        "modelo varía un poco) y <b>Claude</b> es una clasificación hecha leyendo el catálogo, a modo de "
+        "criterio, no de verdad.</span>")
     st.markdown('<div class="sec"><span class="sec-n">03.</span><span class="sec-t">'
                 'Proyectos y Megaproyectos regionales</span>' + tip(tip_proy) + '</div>',
                 unsafe_allow_html=True)
@@ -479,14 +480,14 @@ def pintar_proyectos():
         c = clasif.get(r[P.COL_N])
         if not c:
             return base + '<td colspan="3" class="mas">Sin clasificar</td></tr>'
-        s = c["score"]
+        s = c["orientador"]
         return (base + f'<td>{celda_linea(s[0] if s else "", s[1:], "También")}</td>'
                 f'<td>{celda_linea(c["claude"], c["alternativas"], "Alternativas", c["criterio"])}</td>'
                 f'<td><span class="ins {CLASE.get(c["coinciden"], "dist")}">{esc(c["coinciden"])}</span></td></tr>')
 
     filas = "".join(fila(r) for _, r in res.head(MAX_FILAS_PROYECTOS).iterrows())
     encabezado = ("<th>Proyecto</th><th>Municipio</th><th>Departamento</th><th>Sector</th>"
-                  + ("<th>Línea según el score</th><th>Línea según Claude</th><th>¿Coinciden?</th>"
+                  + ("<th>Línea según el orientador</th><th>Línea según Claude</th><th>¿Coinciden?</th>"
                      if con_clasif else ""))
     if con_clasif:
         cuenta = {}
@@ -496,7 +497,7 @@ def pintar_proyectos():
                  "Sin resultado"]
         partes = " · ".join(f"{k} {cuenta[k]}" for k in orden if cuenta.get(k))
         st.markdown(f'<div class="resumen-clasif"><b>Clasificación de prueba</b> de {len(con_clasif)} '
-                    f'proyecto{"s" if len(con_clasif) != 1 else ""}, score frente a Claude: {partes}</div>',
+                    f'proyecto{"s" if len(con_clasif) != 1 else ""}, orientador frente a Claude: {partes}</div>',
                     unsafe_allow_html=True)
     st.markdown(f'<div class="proy-caja"><table class="proy{" clasif" if con_clasif else ""}"><thead><tr>'
                 f'{encabezado}</tr></thead><tbody>' + filas + '</tbody></table></div>',

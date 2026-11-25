@@ -338,6 +338,42 @@ def cargar_sinonimos() -> dict:
     return _SIN
 
 
+def _vive(termino: str, df) -> bool:
+    """¿Está el término escrito en el Plan (palabras clave, nombre o tema de alguna línea)?"""
+    t = normalizar(termino)
+    return any(_coincide_campos(t, fila, True) for _, fila in df.iterrows())
+
+
+_SIN_VIVOS = None
+
+
+def sinonimos_vivos() -> dict:
+    """El diccionario sin los términos que el Plan no tiene escritos: {palabra: [términos]}.
+
+    Una fila apunta a términos que existen en el Plan o no sirve; con el libro oficial algunos
+    términos del diccionario antiguo ya no existen. Las filas sin ningún término vivo se omiten.
+    Es lo que ve el modelo en el prompt: sólo vocabulario real del Plan."""
+    global _SIN_VIVOS
+    if _SIN_VIVOS is None:
+        df = cargar_estructura()
+        vivos = {}
+        for palabra, destinos in cargar_sinonimos().items():
+            ok = [t for t in destinos if _vive(t, df)]
+            if ok:
+                vivos[palabra] = ok
+        _SIN_VIVOS = vivos
+    return _SIN_VIVOS
+
+
+def sinonimos_muertos() -> dict:
+    """Lo que el diccionario tiene y el Plan no: {palabra: [términos sin existir]}, para depurarlo."""
+    df = cargar_estructura()
+    vivos = sinonimos_vivos()
+    return {p: [t for t in destinos if t not in vivos.get(p, [])]
+            for p, destinos in cargar_sinonimos().items()
+            if any(t not in vivos.get(p, []) for t in destinos)}
+
+
 def catalogo() -> dict:
     """Resumen de la estructura, para el encabezado y el system prompt."""
     df = cargar_estructura()
@@ -375,9 +411,11 @@ def expandir(terminos) -> list:
 
     for t in terminos:
         agregar(t, "escrito")
-        # El diccionario se consulta tanto por la frase completa como por
-        # cada palabra suelta de la frase.
-        for clave in [normalizar(t)] + palabras_utiles(t):
+        # El diccionario se consulta por la frase completa y, si ésta no es una palabra del
+        # diccionario, por cada palabra suelta. La frase gana sobre sus partes: «casa de gobierno»
+        # no debe volverse «vivienda» sólo porque «casa» sí está en el diccionario.
+        claves = [normalizar(t)] if normalizar(t) in sin else [normalizar(t)] + palabras_utiles(t)
+        for clave in claves:
             for equivalente in sin.get(clave, []):
                 agregar(equivalente, f"diccionario: {clave}")
     return salida
@@ -403,17 +441,22 @@ _CAMPOS_DESC = [
 def _coincide_campos(termino: str, fila, usar_raiz: bool, campos=_CAMPOS) -> list:
     """Todos los campos donde aparece el término: [(campo, tipo)], del más pesado al menos.
     Un campo cuenta si contiene el término tal cual (literal; una frase, completa) o, si no,
-    si están todas sus palabras por la raíz."""
+    si están todas sus palabras por la raíz. Las palabras de 3 letras («gas», «vía») no tienen
+    raíz, pero deben aparecer al comienzo de alguna palabra del campo: así «gas natural» no
+    coincide con «base natural» sólo porque «natural» sí está."""
     palabras = [w for w in termino.split() if len(w) >= 3]
     if not palabras:
         return []
     objetivo = {raiz(w) for w in palabras if len(w) >= 4} if usar_raiz else set()
+    cortas = [w for w in palabras if len(w) == 3]
     salida = []
     for nombre, campo, campo_raices in campos:
         if termino in fila[campo]:
             salida.append((nombre, "literal"))
         elif objetivo and objetivo <= fila[campo_raices]:
-            salida.append((nombre, "raíz"))
+            tokens = fila[campo].split()
+            if all(any(t.startswith(c) for t in tokens) for c in cortas):
+                salida.append((nombre, "raíz"))
     return salida
 
 

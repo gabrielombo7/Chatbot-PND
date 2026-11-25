@@ -130,10 +130,17 @@ dispositivo esté en modo oscuro.
 El modelo **ve el catálogo oficial** (códigos, nombres y palabras clave de las 122 líneas
 estratégicas, más la descripción de cada tema, tomados del libro de estructura) y lo usa
 para una sola cosa: traducir lo que escribe la persona al vocabulario del Plan y elegir
-los términos de búsqueda. Si el texto no dice qué es el proyecto (una sigla, un nombre
-propio), pide una descripción en vez de buscar. Como el catálogo sale del libro, **no hay
-que mantener un diccionario para que entienda el vocabulario**: al cambiar el libro, cambia
-lo que ve el modelo.
+los términos de búsqueda. Si el texto no dice qué es el proyecto («AVEM Fase 1»; no
+«Gasoducto Aguazul–Yopal», que dice qué es), pide una descripción en vez de buscar. Si es una
+sola palabra genérica («infraestructura»), busca sólo esa palabra y la interfaz pregunta de qué
+tipo. Como el catálogo sale del libro, al cambiar el libro cambia lo que ve el modelo.
+
+El modelo ve también el **diccionario de vocabulario corriente** (`data/sinonimos.csv`), sólo con los
+términos que el Plan sí tiene escritos (`buscador.sinonimos_vivos`). Así entiende que «placa huella» es
+un proyecto de vías terciarias en vez de preguntar qué es. Es la jerga que el modelo no conoce por sí
+solo; lo demás lo traduce él con el catálogo. Añadir 21 filas más de jerga de proyectos (pavimentación,
+PTAR, estadio, CCTV…), cada una con términos que existen en el Plan, **no cambió ningún resultado** en
+las pruebas, y por eso no se dejaron: más filas sólo valen si el modelo falla por no conocer una palabra.
 
 **No redacta los resultados.** Las líneas estratégicas de la respuesta —código, nombre,
 dónde coincidió y palabras clave— las escribe `motor.py` desde el libro, a partir de lo
@@ -182,15 +189,25 @@ errores de ortografía y algún nombre cortado en el propio PDF. Además trae do
   de esa columna en la hoja «Proyectos»; la página la lee tal cual.
 
 **Clasificación de prueba.** Los 63 proyectos de Amazonas y del encuentro regional «Amazonia» traen, en la
-lista, su ubicación en las líneas estratégicas del Plan de dos maneras, y si coinciden: **Score** es el motor
-del orientador usando sólo las palabras del nombre (sin el modelo de lenguaje, que aquí no se usó) y
-**Claude** es una clasificación hecha leyendo el catálogo del Plan. La segunda es un criterio, no una verdad:
-se corrige editando las columnas «Claude: …» de `data/Clasificacion_proyectos.xlsx`, que es lo que lee la
-página. Al elegir un departamento aparece además un resumen de sectores y municipios.
+lista, su ubicación en las líneas estratégicas del Plan de dos maneras, y si coinciden: el **orientador** es
+lo que hace la aplicación (el modelo elige los términos y el score ubica las líneas) y **Claude** es una
+clasificación hecha leyendo el catálogo del Plan. La segunda es un criterio, no una verdad: se corrige
+editando las columnas «Claude: …» de `data/Clasificacion_proyectos.xlsx`, que es lo que lee la página. El
+orientador es una sola corrida y el modelo varía un poco entre corridas (unos 2 o 3 de 63 proyectos
+cambian de línea). Al elegir un departamento aparece además un resumen de sectores y municipios.
 
 Cinco filas aparecen repetidas tal cual en el PDF: están en el libro, marcadas en «Repetido en el PDF»,
 y la página no las muestra dos veces. Para volver a generar el libro si cambia el PDF:
 `pip install pdfplumber openpyxl` y `python herramientas/digitalizar_anexo4.py <pdf> data/Proyectos_Megaproyectos_Regionales.xlsx`.
+
+## Probar los cambios
+
+- `python herramientas/pruebas_rapidas.py` (sin llave ni red): el ciclo del modelo con un modelo simulado y el
+  buscador con casos conocidos. Dice «TODO OK» o cuál falló.
+- `ANTHROPIC_API_KEY=... python herramientas/clasificar_proyectos.py` (con llave de prueba; cuesta unos
+  centavos): corre los 63 proyectos con el modelo real y escribe `data/Clasificacion_proyectos.xlsx`. Como el
+  modelo no es determinista, conviene comparar el promedio de dos o tres corridas antes de concluir. El API
+  ya no acepta fijar `temperature`, así que no se puede quitar esa variación.
 
 ## Mantenimiento
 
