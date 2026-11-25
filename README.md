@@ -29,7 +29,10 @@ El árbol y su buscador funcionan sin llave. La llave sólo hace falta para el c
 | `arbol.py` | Genera el visor del árbol como HTML autocontenido. |
 | `buscador.py` | **La búsqueda. Aquí se decide todo lo que se encuentra.** |
 | `motor.py` | Herramientas que ve el modelo, reglas de comportamiento y ciclo de conversación. |
+| `proyectos.py` | Filtra los proyectos y megaproyectos regionales por departamento y sector (sin modelo ni búsqueda por palabras). |
+| `herramientas/digitalizar_anexo4.py` | Vuelve a generar el Excel de proyectos desde el PDF del Anexo 4 (sólo si cambia el PDF). |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La estructura. Se lee directo del Excel. |
+| `data/Proyectos_Megaproyectos_Regionales.xlsx` | El Anexo 4 de las Bases del PND digitalizado: 2.888 proyectos. |
 | `data/sinonimos.csv` | Diccionario editable de palabra corriente → término del documento. |
 | `data/reglas.csv` | Reglas editables: grupos de líneas estratégicas (p. ej. el eje 7) que solo se sugieren si la pregunta menciona sus palabras disparadoras. |
 
@@ -152,6 +155,33 @@ una llamada, y el catálogo, que no cambia, se guarda en caché.
 
 Modelo: `claude-haiku-4-5`. Cada consulta cuesta una fracción de centavo. Conviene
 poner un tope de gasto en la consola de Anthropic.
+
+## Proyectos y Megaproyectos regionales
+
+La sección 03 de la página lista los proyectos del **Anexo 4** de las Bases del PND 2026-2030
+(«Indicativo Proyectos y Megaproyectos Regionales», 225 páginas), digitalizado en
+`data/Proyectos_Megaproyectos_Regionales.xlsx`. Dos selectores —**departamento o región** y
+**sector**— filtran la lista, que muestra el nombre del proyecto, su municipio, su departamento y su
+sector; con «Todos» en ambos se ven los primeros 500. Elegir en un selector no recarga el árbol ni
+el chat (es un fragmento de Streamlit).
+
+El libro trae las dos tablas del anexo —«Megaproyectos y proyectos de alto impacto local» (2.495
+filas, con departamento y municipio) y «Otras iniciativas y necesidades de encuentros regionales»
+(393 filas, con el nombre del encuentro regional)— con el texto tal cual está en el PDF, incluidos sus
+errores de ortografía y algún nombre cortado en el propio PDF. Además trae dos columnas para filtrar:
+
+- **Departamento o región (filtro):** los departamentos de cada proyecto; uno de varios departamentos
+  sale en cada uno. Los encuentros regionales que no son un departamento («Pacífico», «Amazonia»…)
+  conservan su nombre; «Santanderes» se toma como Santander y Norte de Santander e «Insular» como San
+  Andrés, Providencia y Santa Catalina; lo nacional queda como «Sin departamento específico».
+- **Sector (filtro):** el sector del PDF con los nombres equivalentes unificados («Salud» y «Salud y
+  Protección Social», «Transporte» y «Vías e infraestructura de transporte», «Energía» y «Minas y
+  Energía»…). La tabla completa está en la hoja «Notas». Si una agrupación no te convence, cambia el valor
+  de esa columna en la hoja «Proyectos»; la página la lee tal cual.
+
+Cinco filas aparecen repetidas tal cual en el PDF: están en el libro, marcadas en «Repetido en el PDF»,
+y la página no las muestra dos veces. Para volver a generar el libro si cambia el PDF:
+`pip install pdfplumber openpyxl` y `python herramientas/digitalizar_anexo4.py <pdf> data/Proyectos_Megaproyectos_Regionales.xlsx`.
 
 ## Mantenimiento
 

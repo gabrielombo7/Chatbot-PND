@@ -49,7 +49,7 @@ def firma_archivos() -> tuple:
     viejo y fallar con «module 'buscador' has no attribute …» hasta reiniciar la app a mano.
     """
     carpeta = Path(__file__).parent
-    rutas = [carpeta / n for n in ("arbol.py", "buscador.py", "motor.py")] + sorted(DATA.glob("*"))
+    rutas = [carpeta / n for n in ("arbol.py", "buscador.py", "motor.py", "proyectos.py")] + sorted(DATA.glob("*"))
     return tuple((r.name, r.stat().st_mtime_ns) for r in rutas if r.exists())
 
 

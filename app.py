@@ -16,6 +16,7 @@ Para correrlo:
     streamlit run app.py
 """
 
+import html
 import importlib
 import os
 
@@ -30,6 +31,7 @@ except Exception:
 import arbol
 import buscador as B
 import motor
+import proyectos as P
 
 st.set_page_config(page_title="Orientador del PND 2026-2030",
                    page_icon="🧭", layout="wide",
@@ -40,7 +42,7 @@ st.set_page_config(page_title="Orientador del PND 2026-2030",
 # …». Si cambió algo en disco desde que se cargaron, se recargan: no hace falta reiniciar a mano.
 _firma = B.firma_archivos() if hasattr(B, "firma_archivos") else None
 if _firma is None or getattr(B, "_FIRMA", None) != _firma:
-    for _m in (B, arbol, motor):     # buscador primero: motor lo usa al cargarse
+    for _m in (B, arbol, motor, P):  # buscador primero: motor lo usa al cargarse
         importlib.reload(_m)
     st.cache_resource.clear()
 
@@ -121,6 +123,17 @@ st.markdown("""
   div[data-testid="stExpander"] details{border:1px solid var(--linea);border-radius:10px;
     background:var(--tarjeta)}
   .stCaption,div[data-testid="stCaptionContainer"]{font-size:13.5px;color:var(--texto)}
+
+  /* lista de proyectos y megaproyectos regionales */
+  .proy-caja{max-height:520px;overflow:auto;border:1px solid var(--linea);border-radius:12px;background:#fff}
+  .proy{width:100%;min-width:640px;border-collapse:collapse;font-size:14.5px}
+  .proy th{position:sticky;top:0;background:var(--marino);color:#fff;text-align:left;font-weight:600;
+    padding:10px 14px;font-family:"Poppins",sans-serif;font-size:13.5px}
+  .proy td{padding:10px 14px;border-top:1px solid var(--linea);vertical-align:top;color:var(--texto-fuerte);
+    line-height:1.45}
+  .proy tr:nth-child(even) td{background:#FAFAF9}
+  .proy td.nom{font-weight:600;color:var(--marino)}
+  .proy td.n{white-space:nowrap}
 </style>
 """, unsafe_allow_html=True)
 
@@ -374,6 +387,64 @@ def pintar_chat():
             procesar(cli, pregunta)
 
 
+TODOS = "Todos"
+MAX_FILAS_PROYECTOS = 500   # filas que se pintan a la vez; el resto se alcanza acotando con los filtros
+
+
+@st.fragment
+def pintar_proyectos():
+    """Proyectos y megaproyectos regionales (Anexo 4): se filtran por departamento y sector.
+    Es un fragmento: elegir en un selector no recarga el árbol ni el chat."""
+    try:
+        total = P.resumen()["n"]
+        territorios, sectores = P.opciones()
+    except (FileNotFoundError, ValueError) as e:
+        st.markdown('<div class="sec"><span class="sec-n">03.</span><span class="sec-t">'
+                    'Proyectos y Megaproyectos regionales</span></div>', unsafe_allow_html=True)
+        st.info(f"No pude cargar los proyectos: {e}")
+        return
+    tip_proy = (
+        f"<span class=\"tp\">Digitalizado del <b>Anexo 4</b> de las Bases del PND 2026-2030 "
+        f"(«Indicativo Proyectos y Megaproyectos Regionales»): {total:,} proyectos".replace(",", ".")
+        + " de megaproyectos, proyectos de alto impacto local e iniciativas de los encuentros "
+        "regionales.</span>"
+        "<span class=\"tp\">Un proyecto de varios departamentos aparece en cada uno. Los sectores "
+        "equivalentes se agrupan (por ejemplo «Salud» y «Salud y Protección Social»); el sector "
+        "original se ve en la lista.</span>")
+    st.markdown('<div class="sec"><span class="sec-n">03.</span><span class="sec-t">'
+                'Proyectos y Megaproyectos regionales</span>' + tip(tip_proy) + '</div>',
+                unsafe_allow_html=True)
+
+    etiqueta_t = {t: f"{t} ({n})" for t, n in territorios}
+    etiqueta_s = {s: f"{s} ({n})" for s, n in sectores}
+    c1, c2 = st.columns(2)
+    dep = c1.selectbox("Departamento o región", [TODOS] + [t for t, _ in territorios],
+                       key="proy_dep", format_func=lambda x: etiqueta_t.get(x, x))
+    sec = c2.selectbox("Sector", [TODOS] + [s for s, _ in sectores],
+                       key="proy_sec", format_func=lambda x: etiqueta_s.get(x, x))
+
+    res = P.filtrar(None if dep == TODOS else dep, None if sec == TODOS else sec)
+    donde = " · ".join(x for x in (None if dep == TODOS else dep, None if sec == TODOS else sec) if x)
+    n = len(res)
+    st.markdown(f"**{n:,}** proyecto{'s' if n != 1 else ''}".replace(",", ".")
+                + (f" en {donde}" if donde else ""))
+    if n == 0:
+        st.caption("Ningún proyecto del anexo cumple esa combinación.")
+        return
+
+    esc = html.escape
+    filas = "".join(
+        f'<tr><td class="nom">{esc(r[P.COL_NOMBRE])}</td><td>{esc(r[P.COL_MUNICIPIO])}</td>'
+        f'<td>{esc(r[P.COL_DEPARTAMENTO])}</td><td>{esc(r[P.COL_SECTOR])}</td></tr>'
+        for _, r in res.head(MAX_FILAS_PROYECTOS).iterrows())
+    st.markdown('<div class="proy-caja"><table class="proy"><thead><tr><th>Proyecto</th><th>Municipio</th>'
+                '<th>Departamento</th><th>Sector</th></tr></thead><tbody>' + filas
+                + '</tbody></table></div>', unsafe_allow_html=True)
+    if n > MAX_FILAS_PROYECTOS:
+        st.caption(f"Se muestran los primeros {MAX_FILAS_PROYECTOS} de {n:,}; elige un departamento o "
+                   "un sector para acotar la lista.".replace(",", "."))
+
+
 if st.session_state.chat_abierto:
     col_arbol, col_chat = st.columns([3.7, 1], gap="medium")
     with col_arbol:
@@ -382,3 +453,5 @@ if st.session_state.chat_abierto:
         pintar_chat()
 else:
     pintar_arbol()
+
+pintar_proyectos()

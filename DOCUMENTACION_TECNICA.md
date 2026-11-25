@@ -223,6 +223,8 @@ orientador sugirió algo, la respuesta siempre está en `buscador.py`, nunca en 
 | `app.py` | Interfaz Streamlit: las dos secciones, el plegado del chat, el historial de conversación, los términos buscados con los sinónimos aplicados, el expander "Notas" (sinónimos, reglas, totales y cómo se ordena, generado desde las constantes de `buscador.py`) y los tooltips de ayuda (CSS, sin JavaScript). |
 | `arbol.py` | Genera el visor del árbol como **HTML/CSS/JS autocontenido** (se incrusta con `st.iframe`, o con `st.components.v1.html` en versiones antiguas de Streamlit). Es portable tal cual a cualquier hosting estático, incluido GitHub Pages. |
 | `buscador.py` | **El corazón del proyecto.** Carga y valida el Excel de estructura, carga el diccionario de sinónimos, y expone `buscar_estrategias`, `listar_vocabulario` y `detalle_estrategia`. Todo documentado en docstrings largos a propósito. |
+| `proyectos.py` | Proyectos y megaproyectos regionales (Anexo 4): carga `data/Proyectos_Megaproyectos_Regionales.xlsx`, quita las filas repetidas tal cual en el PDF y filtra por departamento/región y sector con las columnas «(filtro)», que traen varios valores separados por «; ». Sin modelo ni búsqueda por palabras. |
+| `herramientas/digitalizar_anexo4.py` | Lee las dos tablas del PDF del Anexo 4 con `pdfplumber` y escribe el libro (hojas «Proyectos» y «Notas»). Normaliza sólo las dos columnas de filtro; el resto es el texto del PDF. |
 | `motor.py` | Las herramientas que ve Claude, el *system prompt* con el catálogo, el ciclo de conversación (`responder`), el texto de la respuesta (`texto_busqueda`, `texto_ficha`) y el candado contra líneas ajenas (`lineas_ajenas`). Modelo: `claude-haiku-4-5`. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La fuente de verdad, versión final. Tres hojas por nombre: `VF_Ejes` (descripción), `VF_Temas` (descripción) y `VF_Estructura` (línea estratégica, una sola lista de 1 a 10 palabras clave, código anterior). El contenido proviene del anexo técnico del PDF «Audiencias Públicas PPI 2027-2030», tomado como versión oficial. Las otras hojas del libro se ignoran. `buscador.cargar_estructura()` las valida y las une en una fila por línea estratégica; `cargar_tablas()` devuelve las tres tablas con llaves por código (para el tablero y los indicadores). Si cambia la estructura, se reemplaza este archivo y se reinicia la app. |
 | `data/sinonimos.csv` | El diccionario de la capa 3. Columnas: `palabra`, `terminos_documento` (separados por `;`), `nota`. ~110 filas ya verificadas contra el Excel (cada término de destino existe de verdad en el documento). |
@@ -335,3 +337,31 @@ trámite que el modelo ignora); el segundo, un techo optimista (los términos lo
 conocía el catálogo). Un prototipo que sólo lee el texto del PDF con un ranking de texto (BM25)
 quedó peor (9 a 10 de 29): el lenguaje del Plan es de política y el de los proyectos es de obra, y
 ese puente lo hace el modelo. **Falta medir el modelo real** con la misma lista.
+
+
+## Proyectos y Megaproyectos regionales (Anexo 4)
+
+Sección 03 de `app.py` (`pintar_proyectos`, un `st.fragment`: cambiar un selector no recarga el árbol ni
+el chat). Los datos salen de `data/Proyectos_Megaproyectos_Regionales.xlsx`, generado con
+`herramientas/digitalizar_anexo4.py` desde el PDF del anexo (225 páginas, 2.888 filas: 2.495 de
+«Megaproyectos y proyectos de alto impacto local» y 393 de «Otras iniciativas y necesidades de encuentros
+regionales»). La extracción no encontró filas con celdas vacías ni columnas de más; se comparó a mano contra
+la imagen de varias páginas (2, 12, 100, 194, 195, 225) y coincide fila por fila.
+
+Decisiones que conviene conocer:
+
+- **Texto fiel.** No se corrige ortografía ni se completan nombres: el PDF trae errores («Adecuacion de
+  obrasde…») y algún nombre cortado («…del corregimiento de»).
+- **Filtro de territorio.** El departamento de cada fila se interpreta con una lista de los 32 departamentos y
+  Bogotá (`DEPARTAMENTOS`, por patrones sin tildes; los nombres compuestos como «Valle del Cauca» se buscan
+  primero para que «Cauca» no coincida dentro). Los textos con varios departamentos («Meta, Casanare,
+  Arauca y Vichada») dan una lista; un proyecto sale en cada uno. Los encuentros regionales de la tabla 2
+  que no son un departamento quedan con su nombre; «Santanderes» e «Insular» se mapean a sus departamentos.
+- **Filtro de sector.** El anexo mezcla dos nomenclaturas (la de la Gerencia de Regiones y la de los
+  sectores administrativos) y variantes de mayúsculas. `SECTOR_AGRUPADO` unifica sólo equivalentes
+  claros; los sectores con proyectos de varios sectores («A / B») salen en cada uno. El sector original se
+  muestra siempre en la lista. La clasificación de origen es la del PDF: por ejemplo «Vivienda» incluye
+  algunos acueductos y «Otro» incluye edificios de gobierno.
+- **Repetidos.** Cinco filas son idénticas en el PDF; el libro las conserva marcadas y `proyectos.cargar`
+  las omite.
+- Los proyectos no se enlazan todavía a las líneas estratégicas del Plan: el anexo no trae esa columna.
