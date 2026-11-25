@@ -31,8 +31,10 @@ El árbol y su buscador funcionan sin llave. La llave sólo hace falta para el c
 | `motor.py` | Herramientas que ve el modelo, reglas de comportamiento y ciclo de conversación. |
 | `proyectos.py` | Filtra los proyectos y megaproyectos regionales por departamento y sector (sin modelo ni búsqueda por palabras). |
 | `herramientas/digitalizar_anexo4.py` | Vuelve a generar el Excel de proyectos desde el PDF del Anexo 4 (sólo si cambia el PDF). |
+| `herramientas/clasificar_proyectos.py` | Genera `data/Clasificacion_proyectos.xlsx`: ubica proyectos en las líneas estratégicas con el score y con Claude, y compara. |
 | `data/Estructura_PND_Palabras_claves.xlsx` | La estructura. Se lee directo del Excel. |
 | `data/Proyectos_Megaproyectos_Regionales.xlsx` | El Anexo 4 de las Bases del PND digitalizado: 2.888 proyectos. |
+| `data/Clasificacion_proyectos.xlsx` | Clasificación de prueba de 63 proyectos (Amazonas y el encuentro «Amazonia») en las líneas estratégicas: score frente a Claude. |
 | `data/sinonimos.csv` | Diccionario editable de palabra corriente → término del documento. |
 | `data/reglas.csv` | Reglas editables: grupos de líneas estratégicas (p. ej. el eje 7) que solo se sugieren si la pregunta menciona sus palabras disparadoras. |
 
@@ -178,6 +180,13 @@ errores de ortografía y algún nombre cortado en el propio PDF. Además trae do
   Protección Social», «Transporte» y «Vías e infraestructura de transporte», «Energía» y «Minas y
   Energía»…). La tabla completa está en la hoja «Notas». Si una agrupación no te convence, cambia el valor
   de esa columna en la hoja «Proyectos»; la página la lee tal cual.
+
+**Clasificación de prueba.** Los 63 proyectos de Amazonas y del encuentro regional «Amazonia» traen, en la
+lista, su ubicación en las líneas estratégicas del Plan de dos maneras, y si coinciden: **Score** es el motor
+del orientador usando sólo las palabras del nombre (sin el modelo de lenguaje, que aquí no se usó) y
+**Claude** es una clasificación hecha leyendo el catálogo del Plan. La segunda es un criterio, no una verdad:
+se corrige editando las columnas «Claude: …» de `data/Clasificacion_proyectos.xlsx`, que es lo que lee la
+página. Al elegir un departamento aparece además un resumen de sectores y municipios.
 
 Cinco filas aparecen repetidas tal cual en el PDF: están en el libro, marcadas en «Repetido en el PDF»,
 y la página no las muestra dos veces. Para volver a generar el libro si cambia el PDF:

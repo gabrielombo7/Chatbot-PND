@@ -134,6 +134,17 @@ st.markdown("""
   .proy tr:nth-child(even) td{background:#FAFAF9}
   .proy td.nom{font-weight:600;color:var(--marino)}
   .proy td.n{white-space:nowrap}
+  .proy.clasif{min-width:1180px}
+  .proy .lin{color:var(--marino);line-height:1.35}
+  .proy .mas,.proy .crit{font-size:12.5px;color:var(--texto);margin-top:3px;line-height:1.35}
+  .proy .crit{font-style:italic}
+  .ins{display:inline-block;border-radius:999px;padding:2px 11px;font-size:12.5px;font-weight:700;white-space:nowrap}
+  .ins.igual{background:var(--marino-oscuro);color:#fff}
+  .ins.comp{background:#DCEBF6;color:#0F5987;box-shadow:inset 0 0 0 1px #9DC3E0}
+  .ins.cerc{background:#EAF1F8;color:#0F5987}
+  .ins.tema,.ins.eje{background:#fff;color:#585758;box-shadow:inset 0 0 0 1px #CFCDCB}
+  .ins.dist{background:#EEECEB;color:#585758}
+  .resumen-clasif{font-size:13.5px;color:var(--texto);margin:2px 0 8px}
 </style>
 """, unsafe_allow_html=True)
 
@@ -410,7 +421,11 @@ def pintar_proyectos():
         "regionales.</span>"
         "<span class=\"tp\">Un proyecto de varios departamentos aparece en cada uno. Los sectores "
         "equivalentes se agrupan (por ejemplo «Salud» y «Salud y Protección Social»); el sector "
-        "original se ve en la lista.</span>")
+        "original se ve en la lista.</span>"
+        "<span class=\"tp\">Algunos proyectos (Amazonas y el encuentro regional «Amazonia») traen una "
+        "<b>clasificación de prueba</b> en las líneas estratégicas del Plan: <b>Score</b> es el motor del "
+        "orientador usando sólo las palabras del nombre (sin el modelo de lenguaje) y <b>Claude</b> es "
+        "una clasificación hecha leyendo el catálogo, a modo de criterio, no de verdad.</span>")
     st.markdown('<div class="sec"><span class="sec-n">03.</span><span class="sec-t">'
                 'Proyectos y Megaproyectos regionales</span>' + tip(tip_proy) + '</div>',
                 unsafe_allow_html=True)
@@ -431,15 +446,61 @@ def pintar_proyectos():
     if n == 0:
         st.caption("Ningún proyecto del anexo cumple esa combinación.")
         return
+    if donde:
+        r = P.resumen_filtro(res)
+        lista = lambda xs: ", ".join(f"{x} ({c})" for x, c in xs)
+        st.caption(f"Sectores: {lista(r['sectores'])}  ·  Municipios: {lista(r['municipios'])}")
 
     esc = html.escape
-    filas = "".join(
-        f'<tr><td class="nom">{esc(r[P.COL_NOMBRE])}</td><td>{esc(r[P.COL_MUNICIPIO])}</td>'
-        f'<td>{esc(r[P.COL_DEPARTAMENTO])}</td><td>{esc(r[P.COL_SECTOR])}</td></tr>'
-        for _, r in res.head(MAX_FILAS_PROYECTOS).iterrows())
-    st.markdown('<div class="proy-caja"><table class="proy"><thead><tr><th>Proyecto</th><th>Municipio</th>'
-                '<th>Departamento</th><th>Sector</th></tr></thead><tbody>' + filas
-                + '</tbody></table></div>', unsafe_allow_html=True)
+    clasif = P.clasificacion()
+    nombres_linea = dict(zip(DF["est_n"], DF["est"]))
+    con_clasif = [clasif[x] for x in res[P.COL_N] if x in clasif]
+
+    def celda_linea(codigo, otras=(), rotulo="", criterio=""):
+        if not codigo:
+            return '<div class="mas">Sin resultado</div>'
+        nom = nombres_linea.get(codigo, "")
+        corto = nom if len(nom) <= 72 else nom[:71] + "…"
+        out = f'<div class="lin" title="{esc(nom)}"><b>{esc(codigo)}</b> · {esc(corto)}</div>'
+        if otras:
+            out += f'<div class="mas">{rotulo}: {esc(", ".join(otras))}</div>'
+        if criterio:
+            out += f'<div class="crit">{esc(criterio)}</div>'
+        return out
+
+    CLASE = {"Igual": "igual", "Compatible": "comp", "Entre sus más cercanas": "cerc",
+             "Mismo tema": "tema", "Mismo eje": "eje", "Distinta": "dist", "Sin resultado": "dist"}
+
+    def fila(r):
+        base = (f'<tr><td class="nom">{esc(r[P.COL_NOMBRE])}</td><td>{esc(r[P.COL_MUNICIPIO])}</td>'
+                f'<td>{esc(r[P.COL_DEPARTAMENTO])}</td><td>{esc(r[P.COL_SECTOR])}</td>')
+        if not con_clasif:
+            return base + "</tr>"
+        c = clasif.get(r[P.COL_N])
+        if not c:
+            return base + '<td colspan="3" class="mas">Sin clasificar</td></tr>'
+        s = c["score"]
+        return (base + f'<td>{celda_linea(s[0] if s else "", s[1:], "También")}</td>'
+                f'<td>{celda_linea(c["claude"], c["alternativas"], "Alternativas", c["criterio"])}</td>'
+                f'<td><span class="ins {CLASE.get(c["coinciden"], "dist")}">{esc(c["coinciden"])}</span></td></tr>')
+
+    filas = "".join(fila(r) for _, r in res.head(MAX_FILAS_PROYECTOS).iterrows())
+    encabezado = ("<th>Proyecto</th><th>Municipio</th><th>Departamento</th><th>Sector</th>"
+                  + ("<th>Línea según el score</th><th>Línea según Claude</th><th>¿Coinciden?</th>"
+                     if con_clasif else ""))
+    if con_clasif:
+        cuenta = {}
+        for c in con_clasif:
+            cuenta[c["coinciden"]] = cuenta.get(c["coinciden"], 0) + 1
+        orden = ["Igual", "Compatible", "Entre sus más cercanas", "Mismo tema", "Mismo eje", "Distinta",
+                 "Sin resultado"]
+        partes = " · ".join(f"{k} {cuenta[k]}" for k in orden if cuenta.get(k))
+        st.markdown(f'<div class="resumen-clasif"><b>Clasificación de prueba</b> de {len(con_clasif)} '
+                    f'proyecto{"s" if len(con_clasif) != 1 else ""}, score frente a Claude: {partes}</div>',
+                    unsafe_allow_html=True)
+    st.markdown(f'<div class="proy-caja"><table class="proy{" clasif" if con_clasif else ""}"><thead><tr>'
+                f'{encabezado}</tr></thead><tbody>' + filas + '</tbody></table></div>',
+                unsafe_allow_html=True)
     if n > MAX_FILAS_PROYECTOS:
         st.caption(f"Se muestran los primeros {MAX_FILAS_PROYECTOS} de {n:,}; elige un departamento o "
                    "un sector para acotar la lista.".replace(",", "."))

@@ -365,3 +365,25 @@ Decisiones que conviene conocer:
 - **Repetidos.** Cinco filas son idénticas en el PDF; el libro las conserva marcadas y `proyectos.cargar`
   las omite.
 - Los proyectos no se enlazan todavía a las líneas estratégicas del Plan: el anexo no trae esa columna.
+
+### Clasificación de prueba de proyectos en las líneas estratégicas (Amazonas y «Amazonia»)
+
+`herramientas/clasificar_proyectos.py` ubica 63 proyectos (los 11 de Amazonas y las 52 iniciativas del encuentro
+regional «Amazonia») de dos maneras y escribe `data/Clasificacion_proyectos.xlsx`, que lee `proyectos.clasificacion()`:
+
+- **Score:** `buscador.buscar_estrategias(buscador.terminos_del_texto(nombre))`, es decir, el motor con sólo las
+  palabras del nombre y sin el modelo. Es un piso: en la aplicación el modelo elige los términos.
+- **Claude:** una línea principal y alternativas razonables, leyendo el catálogo; es un criterio a revisar.
+- **¿Coinciden?:** Igual, Compatible (la del score es una alternativa), Entre sus más cercanas, Mismo tema,
+  Mismo eje, Distinta o Sin resultado.
+
+Resultado del 25 de noviembre de 2026 (63 proyectos): Igual 17, Compatible 9, Entre sus más cercanas 2, Mismo
+tema 9, Mismo eje 6, Distinta 19, Sin resultado 1; es decir, 26 (41 %) igual o compatible, 37 (59 %) en el mismo
+tema o mejor y 43 (68 %) en el mismo eje o mejor. En los 11 de Amazonas, sólo 1 igual. Causas de los fallos:
+(1) palabras genéricas del enunciado que coinciden por la raíz con líneas ajenas (por ejemplo «mejorar» con
+«Mejora normativa», 6.2.1, o con «Un Estado que gasta con calidad», 6.3.1, en 5 de los 19 distintos) o con palabras sueltas como «comunidades» y «sistemas»;
+(2) vocabulario que el Plan no usa («aeropuerto», «muelle», «carrera quinta», «sedes educativas») o que usa en
+una sola línea («acueducto» sólo está literal en 4.5.7, y gana a 4.5.4, «Agua potable», que es la que
+corresponde); (3) enunciados de política que el Plan nombra distinto. Descartar los verbos de proyecto del
+respaldo (`GENERICAS`) se probó y apenas cambió el resultado (mismo eje 38 -> 40 de 63; igual 17 -> 17), así que no se
+aplicó. Falta medir el modelo real con la misma lista.

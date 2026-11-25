@@ -8,6 +8,10 @@ sólo filtra por departamento (o región) y por sector.
 El libro trae las columnas del PDF tal cual y dos columnas para filtrar, ya normalizadas:
 «Departamento o región (filtro)» y «Sector (filtro)», con varios valores separados por «; ».
 Un proyecto de varios departamentos o sectores sale en cada uno.
+
+Algunos proyectos tienen además una clasificación de prueba en las líneas estratégicas del Plan,
+hecha de dos maneras (el score del orientador y Claude), en data/Clasificacion_proyectos.xlsx
+(herramientas/clasificar_proyectos.py). `clasificacion()` la devuelve por número de proyecto.
 """
 
 import unicodedata
@@ -17,6 +21,9 @@ import pandas as pd
 
 ARCHIVO = Path(__file__).parent / "data" / "Proyectos_Megaproyectos_Regionales.xlsx"
 HOJA = "Proyectos"
+ARCHIVO_CLASIFICACION = Path(__file__).parent / "data" / "Clasificacion_proyectos.xlsx"
+HOJA_CLASIFICACION = "Clasificación"
+COL_N = "N.°"
 
 COL_NOMBRE = "Nombre del proyecto"
 COL_MUNICIPIO = "Municipio"
@@ -32,6 +39,7 @@ SIN_DEPARTAMENTO = "Sin departamento específico"
 SUFIJO_REGION = "(encuentro regional)"
 
 _DF = None
+_CLASIF = None
 
 
 def _sin_tildes(t: str) -> str:
@@ -92,3 +100,40 @@ def filtrar(territorio=None, sector=None) -> pd.DataFrame:
 def resumen() -> dict:
     df = cargar()
     return {"n": int(len(df))}
+
+
+def resumen_filtro(df: pd.DataFrame, maximo: int = 5) -> dict:
+    """Qué hay en un conjunto de proyectos: sectores (ya unificados) y municipios más frecuentes."""
+    sect, mun = {}, {}
+    for lista in df["_sectores"]:
+        for s in lista:
+            sect[s] = sect.get(s, 0) + 1
+    for m in df[COL_MUNICIPIO]:
+        if m.strip():
+            mun[m] = mun.get(m, 0) + 1
+    orden = lambda d: sorted(d.items(), key=lambda kv: (-kv[1], _sin_tildes(kv[0])))[:maximo]
+    return {"sectores": orden(sect), "municipios": orden(mun)}
+
+
+def _codigos(texto: str) -> list:
+    return [c.strip() for c in str(texto).split(";") if c.strip()]
+
+
+def clasificacion() -> dict:
+    """Clasificación de prueba de algunos proyectos, por «N.°» (texto): el score y Claude.
+    Devuelve {} si el archivo no existe: la página funciona igual sin ella."""
+    global _CLASIF
+    if _CLASIF is not None:
+        return _CLASIF
+    _CLASIF = {}
+    if ARCHIVO_CLASIFICACION.exists():
+        df = pd.read_excel(ARCHIVO_CLASIFICACION, sheet_name=HOJA_CLASIFICACION, dtype=str).fillna("")
+        for _, r in df.iterrows():
+            _CLASIF[r[COL_N].strip()] = {
+                "score": [c for c in [r["Score: línea más cercana"].strip()] + _codigos(r["Score: otras más cercanas"]) if c],
+                "claude": r["Claude: línea principal"].strip(),
+                "alternativas": _codigos(r["Claude: alternativas"]),
+                "criterio": r["Claude: criterio"].strip(),
+                "coinciden": r["¿Coinciden?"].strip(),
+            }
+    return _CLASIF
